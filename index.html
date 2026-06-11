@@ -2036,12 +2036,16 @@ async function renderNews() {
     else errors.push(`${sources[i].label}: ${r.reason?.message || 'failed'}`);
   });
 
-  // Headline prefixes to always suppress (case-insensitive).
+  // Headline prefixes to always suppress (case-insensitive). Titles are normalized
+  // before matching: curly apostrophes (’ ‘) become straight ones, so list entries
+  // here using plain ' will match either form.
   const BLOCKED_TITLE_PREFIXES = [
+    "fantasy women's hoops:",
     "espn fantasy women's hoops:",
   ];
+  const normTitle = (s) => (s || '').replace(/[‘’]/g, "'").trim().toLowerCase();
   combined = combined.filter(a => {
-    const t = (a.title || '').trim().toLowerCase();
+    const t = normTitle(a.title);
     return !BLOCKED_TITLE_PREFIXES.some(p => t.startsWith(p));
   });
 
