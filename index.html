@@ -2041,7 +2041,6 @@ async function renderNews() {
   // here using plain ' will match either form.
   const BLOCKED_TITLE_PREFIXES = [
     "fantasy women's hoops:",
-    "espn fantasy women's hoops:",
   ];
   const normTitle = (s) => (s || '').replace(/[‘’]/g, "'").trim().toLowerCase();
   combined = combined.filter(a => {
