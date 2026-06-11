@@ -967,7 +967,7 @@ function renderGameStatsHTML(ev, sum, opts = {}) {
   // minutes, points, FG, 3PT, FT, rebounds, assists, turnovers, steals, blocks,
   // offensiveRebounds, defensiveRebounds, fouls, plusMinus.
   // We also track blocks for double/triple-double detection even though it isn't displayed.
-  let statIdx = { minutes: 0, points: 1, rebounds: 5, assists: 6, steals: 8, blocks: 9, fouls: 12 };
+  let statIdx = { minutes: 0, points: 1, threes: 3, rebounds: 5, assists: 6, steals: 8, blocks: 9, fouls: 12 };
   const teamShooting = {};
   const multiStat = !!opts.multiStat;
 
@@ -979,6 +979,7 @@ function renderGameStatsHTML(ev, sum, opts = {}) {
       if (keys.length) {
         statIdx.minutes  = keys.indexOf('minutes');
         statIdx.points   = keys.indexOf('points');
+        statIdx.threes   = keys.indexOf('threePointFieldGoalsMade-threePointFieldGoalsAttempted');
         statIdx.rebounds = keys.indexOf('rebounds');
         statIdx.assists  = keys.indexOf('assists');
         statIdx.steals   = keys.indexOf('steals');
@@ -1218,10 +1219,14 @@ function renderGameStatsHTML(ev, sum, opts = {}) {
         : p.name;
       const gv = (key) => p.stats[statIdx[key]] ?? '';
       const safe = (s) => String(s).replace(/"/g, '&quot;');
+      // ESPN reports 3PT as "made-attempts" (e.g. "7-10"); display as "7/10".
+      // parseInt on "7/10" yields the made count, so numeric sort works as-is.
+      const tpt = String(gv('threes')).replace('-', '/');
       return `<tr
         data-name="${safe(p.name)}"
         data-min="${gv('minutes')}"
         data-pts="${gv('points')}"
+        data-tpt="${tpt}"
         data-reb="${gv('rebounds')}"
         data-ast="${gv('assists')}"
         data-stl="${gv('steals')}"
@@ -1231,6 +1236,7 @@ function renderGameStatsHTML(ev, sum, opts = {}) {
         <td class="bs-icon">${computeIcon(p)}</td>
         <td>${gv('minutes')}</td>
         <td>${gv('points')}</td>
+        <td>${tpt}</td>
         <td>${gv('rebounds')}</td>
         <td>${gv('assists')}</td>
         <td>${gv('steals')}</td>
@@ -1247,6 +1253,7 @@ function renderGameStatsHTML(ev, sum, opts = {}) {
             <th></th>
             <th data-sort-key="min" data-numeric>MIN</th>
             <th data-sort-key="pts" data-numeric class="bs-active sort-desc">PTS</th>
+            <th data-sort-key="tpt" data-numeric title="3-pointers made/attempted">3PT</th>
             <th data-sort-key="reb" data-numeric>REB</th>
             <th data-sort-key="ast" data-numeric>AST</th>
             <th data-sort-key="stl" data-numeric>STL</th>
