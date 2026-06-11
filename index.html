@@ -218,7 +218,7 @@
   .stat-line .val { font-weight: 600; margin-left: 8px; font-variant-numeric: tabular-nums; }
   .stat-line.multi {
     display: grid;
-    grid-template-columns: 1fr 16px repeat(5, 28px);
+    grid-template-columns: 1fr 16px 28px 38px repeat(4, 28px);
     gap: 4px;
     align-items: center;
   }
@@ -647,7 +647,7 @@
     .stats-grid { grid-template-columns: 1fr; gap: 8px; }
     .stats-block { padding: 6px 8px; }
     .stat-line.multi {
-      grid-template-columns: 1fr 14px repeat(5, 24px);
+      grid-template-columns: 1fr 14px 24px 34px repeat(4, 24px);
       gap: 3px;
       font-size: 12px;
     }
@@ -1050,6 +1050,7 @@ function renderGameStatsHTML(ev, sum, opts = {}) {
     <span class="name"></span>
     <span></span>
     <span class="val">PTS</span>
+    <span class="val">3PT</span>
     <span class="val">RBD</span>
     <span class="val">ASS</span>
     <span class="val">STL</span>
@@ -1070,6 +1071,7 @@ function renderGameStatsHTML(ev, sum, opts = {}) {
           <span class="name">${teamSpan(p.team)} ${nameHtml}</span>
           ${computeIcon(p)}
           <span class="val">${getStat(p, 'points')}</span>
+          <span class="val">${String(getStat(p, 'threes')).replace('-', '/')}</span>
           <span class="val">${getStat(p, 'rebounds')}</span>
           <span class="val">${getStat(p, 'assists')}</span>
           <span class="val">${getStat(p, 'steals')}</span>
