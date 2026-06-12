@@ -109,7 +109,13 @@
     flex-direction: column;
     gap: 14px;
     min-height: 80px;
+    /* Grid/flex items default to min-width:auto, which lets wide content
+       (e.g. the min-width box-score tables) blow the column out past the
+       viewport instead of scrolling inside their card. Zeroing it keeps
+       horizontal scrolling contained to .bs-team. */
+    min-width: 0;
   }
+  .section, .section-body, .card-view { min-width: 0; }
   @media (max-width: 900px) {
     .board-grid { grid-template-columns: 1fr; }
   }
@@ -640,6 +646,9 @@
 
   /* --- Mobile (≤ 600 px, iPhone 15 Pro Max is 430 px logical) --- */
   @media (max-width: 600px) {
+    /* Never let the page itself pan sideways on phones — wide tables scroll
+       inside their own .bs-team / #standingsBody wrappers instead. */
+    html, body { overflow-x: hidden; max-width: 100vw; }
     body { padding: 12px; }
     h1.title { font-size: 24px; gap: 4px; }
     h1.title .logo { height: 32px; }
