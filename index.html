@@ -320,6 +320,8 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  /* Short "C. Clark" names only show on phones. */
+  .bs-short { display: none; }
   table.bs-table th, table.bs-table td {
     padding: 4px 6px;
     text-align: right;
@@ -686,16 +688,18 @@
     table.standings { font-size: 12px; min-width: 320px; }
     table.standings th, table.standings td { padding: 4px 6px; }
 
-    /* Box score tables: tighter fixed columns on phones so less sideways
-       scrolling is needed; Player still keeps ~150px for names. */
-    .bs-team { -webkit-overflow-scrolling: touch; }
-    table.bs-table { min-width: 490px; font-size: 11px; }
-    table.bs-table th, table.bs-table td { padding: 4px 4px; }
-    table.bs-table th:nth-child(2) { width: 22px; }
+    /* Box score tables: abbreviated names + tight fixed columns so the whole
+       table fits a phone screen with no sideways scrolling. */
+    .bs-team { -webkit-overflow-scrolling: touch; padding: 6px; }
+    table.bs-table { min-width: 0; font-size: 11px; }
+    table.bs-table th, table.bs-table td { padding: 4px 2px; }
+    table.bs-table th:nth-child(2) { width: 16px; }
     table.bs-table th:nth-child(3),
-    table.bs-table th:nth-child(4) { width: 38px; }
-    table.bs-table th:nth-child(5) { width: 46px; }
-    table.bs-table th:nth-child(n+6) { width: 38px; }
+    table.bs-table th:nth-child(4) { width: 27px; }
+    table.bs-table th:nth-child(5) { width: 36px; }
+    table.bs-table th:nth-child(n+6) { width: 27px; }
+    .bs-full  { display: none; }
+    .bs-short { display: inline; }
 
     /* News list */
     ul.news li { font-size: 13px; padding: 7px 0; }
@@ -1252,9 +1256,14 @@ function renderGameStatsHTML(ev, sum, opts = {}) {
     const sorted = players.slice().sort((a, b) =>
       (parseInt(b.stats[statIdx.points], 10) || 0) - (parseInt(a.stats[statIdx.points], 10) || 0));
     const rows = sorted.map(p => {
+      // Full name on desktop; "C. Clark"-style short name on phones (CSS swaps them)
+      // so the whole table fits the screen without sideways scrolling.
+      const parts = p.name.trim().split(/\s+/);
+      const shortName = parts.length > 1 ? `${parts[0][0]}. ${parts.slice(1).join(' ')}` : p.name;
+      const nameInner = `<span class="bs-full">${p.name}</span><span class="bs-short">${shortName}</span>`;
       const link = p.link
-        ? `<a class="player-link" href="${p.link}" target="_blank" rel="noopener">${p.name}</a>`
-        : p.name;
+        ? `<a class="player-link" href="${p.link}" target="_blank" rel="noopener">${nameInner}</a>`
+        : nameInner;
       const gv = (key) => p.stats[statIdx[key]] ?? '';
       const safe = (s) => String(s).replace(/"/g, '&quot;');
       // ESPN reports 3PT as "made-attempts" (e.g. "7-10"); display as "7/10".
