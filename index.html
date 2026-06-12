@@ -298,8 +298,11 @@
     font-size: 12px;
     font-variant-numeric: tabular-nums;
     /* Fixed layout with explicit column widths so the away and home tables
-       align column-for-column regardless of player-name lengths. */
+       align column-for-column regardless of player-name lengths. The min-width
+       guarantees the Player column keeps real space on narrow screens — the
+       .bs-team wrapper scrolls horizontally when the viewport is narrower. */
     table-layout: fixed;
+    min-width: 560px;
   }
   table.bs-table th:nth-child(2) { width: 26px; }                /* DD icon */
   table.bs-table th:nth-child(3),
@@ -673,6 +676,17 @@
     #standingsBody  { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     table.standings { font-size: 12px; min-width: 320px; }
     table.standings th, table.standings td { padding: 4px 6px; }
+
+    /* Box score tables: tighter fixed columns on phones so less sideways
+       scrolling is needed; Player still keeps ~150px for names. */
+    .bs-team { -webkit-overflow-scrolling: touch; }
+    table.bs-table { min-width: 490px; font-size: 11px; }
+    table.bs-table th, table.bs-table td { padding: 4px 4px; }
+    table.bs-table th:nth-child(2) { width: 22px; }
+    table.bs-table th:nth-child(3),
+    table.bs-table th:nth-child(4) { width: 38px; }
+    table.bs-table th:nth-child(5) { width: 46px; }
+    table.bs-table th:nth-child(n+6) { width: 38px; }
 
     /* News list */
     ul.news li { font-size: 13px; padding: 7px 0; }
