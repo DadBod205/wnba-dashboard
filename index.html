@@ -311,10 +311,8 @@
     min-width: 560px;
   }
   table.bs-table th:nth-child(2) { width: 26px; }                /* DD icon */
-  table.bs-table th:nth-child(3),
-  table.bs-table th:nth-child(4) { width: 44px; }                /* MIN, PTS */
-  table.bs-table th:nth-child(5) { width: 54px; }                /* 3PT */
-  table.bs-table th:nth-child(n+6) { width: 44px; }              /* REB…FLS */
+  table.bs-table th:nth-child(n+3) { width: 44px; }              /* MIN, PTS, REB, AST, STL, BLK, FLS */
+  table.bs-table th:nth-child(9) { width: 54px; }                /* 3PT (wider for made/att) */
   table.bs-table td:first-child {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -694,10 +692,8 @@
     table.bs-table { min-width: 0; font-size: 11px; }
     table.bs-table th, table.bs-table td { padding: 4px 2px; }
     table.bs-table th:nth-child(2) { width: 16px; }
-    table.bs-table th:nth-child(3),
-    table.bs-table th:nth-child(4) { width: 27px; }
-    table.bs-table th:nth-child(5) { width: 36px; }
-    table.bs-table th:nth-child(n+6) { width: 27px; }
+    table.bs-table th:nth-child(n+3) { width: 27px; }
+    table.bs-table th:nth-child(9) { width: 36px; }   /* 3PT */
     .bs-full  { display: none; }
     .bs-short { display: inline; }
 
@@ -1283,11 +1279,11 @@ function renderGameStatsHTML(ev, sum, opts = {}) {
         <td class="bs-icon">${computeIcon(p)}</td>
         <td>${gv('minutes')}</td>
         <td>${gv('points')}</td>
-        <td>${tpt}</td>
         <td>${gv('rebounds')}</td>
         <td>${gv('assists')}</td>
         <td>${gv('steals')}</td>
         <td>${gv('blocks')}</td>
+        <td>${tpt}</td>
         <td>${gv('fouls')}</td>
       </tr>`;
     }).join('');
@@ -1300,11 +1296,11 @@ function renderGameStatsHTML(ev, sum, opts = {}) {
             <th></th>
             <th data-sort-key="min" data-numeric>MIN</th>
             <th data-sort-key="pts" data-numeric class="bs-active sort-desc">PTS</th>
-            <th data-sort-key="tpt" data-numeric title="3-pointers made/attempted">3PT</th>
             <th data-sort-key="reb" data-numeric>REB</th>
             <th data-sort-key="ast" data-numeric>AST</th>
             <th data-sort-key="stl" data-numeric>STL</th>
             <th data-sort-key="blk" data-numeric>BLK</th>
+            <th data-sort-key="tpt" data-numeric title="3-pointers made/attempted">3PT</th>
             <th data-sort-key="fls" data-numeric>FLS</th>
           </tr></thead>
           <tbody>${rows}</tbody>
@@ -2116,7 +2112,7 @@ const LS_LAYOUT = 'wnba-section-layout';
 // v2: was an array of collapsed keys; now an object {key: isCollapsed} that only
 // contains sections the user has explicitly toggled. Untouched sections fall
 // back to whatever the HTML default is (so e.g. Live Games stays collapsed).
-const LS_COLLAPSED = 'wnba-collapsed-v2';
+const LS_COLLAPSED = 'wnba-collapsed-v3';
 
 const BOARD_COLS = ['boardTop', 'boardLeft', 'boardRight'];
 
@@ -2141,8 +2137,11 @@ function saveLayout() {
   localStorage.setItem(LS_LAYOUT, JSON.stringify(layout));
 }
 function applySavedCollapsed() {
-  // One-time cleanup of the old v1 collapsed key.
+  // One-time cleanup of superseded collapsed keys. Bumping to v3 resets saved
+  // collapse state to the HTML defaults (Today + Last Night's Scores expanded,
+  // everything else collapsed) so older saved prefs don't keep Highlights open.
   localStorage.removeItem('wnba-collapsed');
+  localStorage.removeItem('wnba-collapsed-v2');
   // Only override the HTML default for sections the user has explicitly toggled.
   const saved = JSON.parse(localStorage.getItem(LS_COLLAPSED) || '{}');
   document.querySelectorAll('.section').forEach(s => {
