@@ -1002,19 +1002,36 @@ function topN(players, statIdx, n) {
 // flagrants — those only appear in the play-by-play text. Parse them out and
 // attribute to players by the name that leads each play description, e.g.
 // "Kierstan Bell technical foul" or "Isabelle Harrison flagrant foul type 2".
-// Coach/bench technicals are logged anonymously as a bare "technical foul" with
-// no name/team, so we can only tally them as benchTech (unattributed).
-// Returns { byPlayer: { "lowercase name": {tech,fl1,fl2} }, benchTech: number }.
+// Coach/bench technicals are logged anonymously as a bare "technical foul" (no
+// name), but we can recover the TEAM: a technical awards the OTHER team a free
+// throw, so the next "technical free throw" play's shooter is on the opponent —
+// the offending team is whichever team didn't shoot it.
+// Returns { byPlayer: { "lowercase name": {tech,fl1,fl2} },
+//           benchTech: [ { abbr, count } ] }.
 function parseFoulExtras(sum) {
   const byPlayer = {};
-  let benchTech = 0;
+  const benchByTeamId = {};
   const plays = sum?.plays || [];
+  const teams = (sum?.boxscore?.teams || []).map(t => String(t.team.id));
+  const idToAbbr = {};
+  (sum?.boxscore?.teams || []).forEach(t => { idToAbbr[String(t.team.id)] = t.team.abbreviation; });
+
   const bump = (name, key) => {
     const k = (name || '').trim().toLowerCase();
     if (!k) return;
     (byPlayer[k] = byPlayer[k] || { tech: 0, fl1: 0, fl2: 0 })[key]++;
   };
-  plays.forEach(p => {
+  // The team that shot the technical FT immediately following play `idx`.
+  const ftTeamAfter = (idx) => {
+    for (let j = idx + 1; j < Math.min(plays.length, idx + 5); j++) {
+      if (/technical free throw/i.test(plays[j].text || '')) {
+        return plays[j].team?.id != null ? String(plays[j].team.id) : null;
+      }
+    }
+    return null;
+  };
+
+  plays.forEach((p, idx) => {
     const t = (p.text || '').trim();
     if (!t || /free throw/i.test(t)) return; // skip the resulting free-throw plays
     let m = t.match(/^(.+?)\s+flagrant foul type\s*(\d)/i);
@@ -1022,8 +1039,15 @@ function parseFoulExtras(sum) {
     if (!/technical foul/i.test(t)) return;
     // "Defensive 3-seconds" is a team technical, not charged to the player — skip.
     if (/defensive 3-seconds/i.test(t)) return;
-    // Coach / bench technical: ESPN logs it as a bare "technical foul", no name.
-    if (/^technical foul$/i.test(t)) { benchTech++; return; }
+    // Coach / bench technical: bare "technical foul", no name. Infer the offending
+    // team from the opposing free-throw shooter.
+    if (/^technical foul$/i.test(t)) {
+      const ftTeam = ftTeamAfter(idx);
+      const offTeam = (ftTeam && teams.length === 2) ? teams.find(id => id !== ftTeam) : null;
+      const key = offTeam || 'unknown';
+      benchByTeamId[key] = (benchByTeamId[key] || 0) + 1;
+      return;
+    }
     // Double technical: "Double technical foul: A and B" → one each.
     m = t.match(/^double technical foul:\s*(.+)$/i);
     if (m) { m[1].split(/\s+and\s+|,\s*/i).forEach(n => bump(n, 'tech')); return; }
@@ -1031,6 +1055,10 @@ function parseFoulExtras(sum) {
     m = t.match(/^(.+?)\s+technical foul\b/i);
     if (m) bump(m[1], 'tech');
   });
+
+  const benchTech = Object.entries(benchByTeamId).map(([id, count]) => ({
+    abbr: idToAbbr[id] || null, count,
+  }));
   return { byPlayer, benchTech };
 }
 
@@ -1256,7 +1284,7 @@ function renderGameStatsHTML(ev, sum, opts = {}) {
       }
     }));
     let tfHtml = '';
-    if (tfList.length || extras.benchTech > 0) {
+    if (tfList.length || extras.benchTech.length) {
       // Sort by ejection-worthiness, then flagrant severity, then technicals.
       const ejected = (p) => (p.fl2 > 0 || p.tech >= 2) ? 1 : 0;
       tfList.sort((a, b) =>
@@ -1276,16 +1304,17 @@ function renderGameStatsHTML(ev, sum, opts = {}) {
           <span class="foul-count">${flHtml}</span>
         </div>`;
       }).join('');
-      // Coach/bench technicals — ESPN doesn't attribute these to a name or team.
-      if (extras.benchTech > 0) {
+      // Coach/bench technicals — name isn't in the data, but the team is inferred.
+      extras.benchTech.forEach(bt => {
+        const teamCell = bt.abbr ? teamSpan(bt.abbr) : '<span style="color:var(--muted)">—</span>';
         rows += `<div class="tf-row">
           <span class="foul-icon"></span>
-          <span style="color:var(--muted)">—</span>
-          <span class="foul-name" style="color:var(--muted); font-style:italic" title="Coach or bench technical (ESPN doesn't name who)">Bench / Coach</span>
-          <span class="foul-count">${extras.benchTech}</span>
+          <span>${teamCell}</span>
+          <span class="foul-name" style="color:var(--muted); font-style:italic" title="Coach or bench technical (ESPN doesn't name the individual)">Bench / Coach</span>
+          <span class="foul-count">${bt.count}</span>
           <span class="foul-count"></span>
         </div>`;
-      }
+      });
       tfHtml = `
         <div class="foul-leaderboard">
           <h4>Technicals &amp; Flagrants</h4>
