@@ -311,8 +311,8 @@
     min-width: 560px;
   }
   table.bs-table th:nth-child(2) { width: 26px; }                /* DD icon */
-  table.bs-table th:nth-child(n+3) { width: 44px; }              /* MIN, PTS, REB, AST, STL, BLK, FLS */
-  table.bs-table th:nth-child(9) { width: 54px; }                /* 3PT (wider for made/att) */
+  table.bs-table th:nth-child(n+3) { width: 44px; }              /* PTS, REB, AST, STL, BLK, FLS, MIN */
+  table.bs-table th:nth-child(8) { width: 54px; }                /* 3PT (wider for made/att) */
   table.bs-table td:first-child {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -360,17 +360,25 @@
     color: var(--muted);
     letter-spacing: 0.4px;
   }
+  /* Foul Trouble: icon · team · name · PF (personal fouls only). */
   .foul-row {
     display: grid;
-    /* Fixed sizes for the icon/team/count; name column shrinks to content with a sensible
-       floor so very-short names don't make the table comically narrow. */
     grid-template-columns: 18px 40px minmax(90px, max-content) 28px;
     gap: 6px;
     align-items: center;
     padding: 3px 0;
     font-size: 13px;
   }
-  .foul-row.foul-header {
+  /* Technicals & Flagrants: icon · team · name · TF · FL. */
+  .tf-row {
+    display: grid;
+    grid-template-columns: 18px 40px minmax(90px, max-content) 28px 34px;
+    gap: 6px;
+    align-items: center;
+    padding: 3px 0;
+    font-size: 13px;
+  }
+  .foul-row.foul-header, .tf-row.foul-header {
     font-size: 10px;
     text-transform: uppercase;
     color: var(--muted);
@@ -379,9 +387,13 @@
     padding-bottom: 3px;
     margin-bottom: 2px;
   }
-  .foul-row .foul-icon  { text-align: center; line-height: 1; }
-  .foul-row .foul-count { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .foul-row .foul-name  { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .foul-icon  { text-align: center; line-height: 1; }
+  /* Header labels and data values right-align so PF/TF/FL sit over their numbers. */
+  .foul-num   { text-align: right; }
+  .foul-count { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .foul-name  { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .foul-fl1 { color: #FF8C1A; font-weight: 700; }
+  .foul-fl2 { color: #c00; font-weight: 800; }
   .foul-alarm-dot, .foul-warn-dot {
     display: inline-block;
     width: 10px;
@@ -693,7 +705,7 @@
     table.bs-table th, table.bs-table td { padding: 4px 2px; }
     table.bs-table th:nth-child(2) { width: 16px; }
     table.bs-table th:nth-child(n+3) { width: 27px; }
-    table.bs-table th:nth-child(9) { width: 36px; }   /* 3PT */
+    table.bs-table th:nth-child(8) { width: 36px; }   /* 3PT */
     .bs-full  { display: none; }
     .bs-short { display: inline; }
 
@@ -986,6 +998,31 @@ function topN(players, statIdx, n) {
     .slice(0, n);
 }
 
+// ESPN's per-player box score has personal fouls (PF) but NOT technicals or
+// flagrants — those only appear in the play-by-play text. Parse them out and
+// attribute to players by the name that leads each play description, e.g.
+// "Kierstan Bell technical foul" or "Isabelle Harrison flagrant foul type 2".
+// Returns { "lowercase player name": { tech, fl1, fl2 } }.
+function parseFoulExtras(sum) {
+  const map = {};
+  const plays = sum?.plays || [];
+  const bump = (name, key) => {
+    const k = (name || '').trim().toLowerCase();
+    if (!k) return;
+    (map[k] = map[k] || { tech: 0, fl1: 0, fl2: 0 })[key]++;
+  };
+  plays.forEach(p => {
+    const t = (p.text || '').trim();
+    if (!t || /free throw/i.test(t)) return; // skip the resulting free-throw plays
+    let m = t.match(/^(.+?)\s+flagrant foul type\s*(\d)/i);
+    if (m) { bump(m[1], m[2] === '2' ? 'fl2' : 'fl1'); return; }
+    // Personal technical only — skip "defensive 3-seconds" team technicals.
+    m = t.match(/^(.+?)\s+technical foul\b/i);
+    if (m && !/defensive 3-seconds/i.test(t)) bump(m[1], 'tech');
+  });
+  return map;
+}
+
 // Build the inner stats HTML (top scorers/rebounders + shooting lines) for a single game.
 // Returns '' if the summary isn't usable yet. Caller wraps with its own game-card chrome.
 // Options:
@@ -1157,19 +1194,24 @@ function renderGameStatsHTML(ev, sum, opts = {}) {
       </div>`;
   };
 
-  // Foul Trouble leaderboard — any player with ≥3 fouls, sorted descending.
-  //   3 fouls       → no icon (still in trouble territory; just listed)
-  //   4 or 5 fouls  → pulsing red alarm dot
-  //   6 fouls       → fouled out (bold red ✖, can't return to the game)
+  // Two separate blocks:
+  //   Foul Trouble — players with ≥3 personal fouls (4/5 = pulsing dot, 6 = fouled out ✖).
+  //   Technicals & Flagrants — players with any technical or flagrant (parsed from the
+  //   play-by-play). A flagrant 2 or a 2nd technical is an ejection (✖).
+  const playerNameHtml = (p) => p.link
+    ? `<a class="player-link" href="${p.link}" target="_blank" rel="noopener">${p.name}</a>`
+    : p.name;
   let foulHtml = '';
   if (includeFouls) {
+    const extras = parseFoulExtras(sum);
+
+    // --- Foul Trouble (personal fouls) ---
     const inTrouble = [];
-    Object.entries(playersByTeam).forEach(([team, ps]) => {
-      ps.forEach(p => {
-        const fouls = parseInt(getStat(p, 'fouls'), 10);
-        if (!isNaN(fouls) && fouls >= 3) inTrouble.push({ ...p, fouls });
-      });
-    });
+    Object.values(playersByTeam).forEach(ps => ps.forEach(p => {
+      const fouls = parseInt(getStat(p, 'fouls'), 10) || 0;
+      if (fouls >= 3) inTrouble.push({ ...p, fouls });
+    }));
+    let foulTroubleHtml = '';
     if (inTrouble.length) {
       inTrouble.sort((a, b) => b.fouls - a.fouls);
       const rows = inTrouble.map(p => {
@@ -1177,28 +1219,63 @@ function renderGameStatsHTML(ev, sum, opts = {}) {
         if (p.fouls >= 6)       icon = '<span class="foul-out" title="Fouled out">✖</span>';
         else if (p.fouls === 5) icon = '<span class="foul-alarm-dot" title="5 fouls"></span>';
         else if (p.fouls === 4) icon = '<span class="foul-warn-dot"  title="4 fouls"></span>';
-        const nameHtml = p.link
-          ? `<a class="player-link" href="${p.link}" target="_blank" rel="noopener">${p.name}</a>`
-          : p.name;
         return `<div class="foul-row">
           <span class="foul-icon">${icon}</span>
           <span>${teamSpan(p.team)}</span>
-          <span class="foul-name">${nameHtml}</span>
+          <span class="foul-name">${playerNameHtml(p)}</span>
           <span class="foul-count">${p.fouls}</span>
         </div>`;
       }).join('');
-      foulHtml = `
+      foulTroubleHtml = `
         <div class="foul-leaderboard">
           <h4>Foul Trouble</h4>
           <div class="foul-row foul-header">
-            <span></span>
-            <span>TEAM</span>
-            <span>PLAYER</span>
-            <span>PF</span>
+            <span></span><span>TEAM</span><span>PLAYER</span><span class="foul-num">PF</span>
           </div>
           ${rows}
         </div>`;
     }
+
+    // --- Technicals & Flagrants ---
+    const tfList = [];
+    Object.values(playersByTeam).forEach(ps => ps.forEach(p => {
+      const ex = extras[p.name.trim().toLowerCase()];
+      if (ex && (ex.tech > 0 || ex.fl1 > 0 || ex.fl2 > 0)) {
+        tfList.push({ ...p, tech: ex.tech, fl1: ex.fl1, fl2: ex.fl2 });
+      }
+    }));
+    let tfHtml = '';
+    if (tfList.length) {
+      // Sort by ejection-worthiness, then flagrant severity, then technicals.
+      const ejected = (p) => (p.fl2 > 0 || p.tech >= 2) ? 1 : 0;
+      tfList.sort((a, b) =>
+        (ejected(b) - ejected(a)) ||
+        ((b.fl2 * 2 + b.fl1) - (a.fl2 * 2 + a.fl1)) ||
+        (b.tech - a.tech));
+      const rows = tfList.map(p => {
+        const icon = ejected(p) ? '<span class="foul-out" title="Ejected">✖</span>' : '';
+        let flHtml = '';
+        if (p.fl2 > 0)      flHtml = `<span class="foul-fl2" title="Flagrant 2 (ejection)">F2</span>`;
+        else if (p.fl1 > 0) flHtml = `<span class="foul-fl1" title="Flagrant 1">F1</span>`;
+        return `<div class="tf-row">
+          <span class="foul-icon">${icon}</span>
+          <span>${teamSpan(p.team)}</span>
+          <span class="foul-name">${playerNameHtml(p)}</span>
+          <span class="foul-count">${p.tech || ''}</span>
+          <span class="foul-count">${flHtml}</span>
+        </div>`;
+      }).join('');
+      tfHtml = `
+        <div class="foul-leaderboard">
+          <h4>Technicals &amp; Flagrants</h4>
+          <div class="tf-row foul-header">
+            <span></span><span>TEAM</span><span>PLAYER</span><span class="foul-num">TF</span><span class="foul-num">FL</span>
+          </div>
+          ${rows}
+        </div>`;
+    }
+
+    foulHtml = foulTroubleHtml + tfHtml;
   }
 
   const enableTabs = !!opts.enableTabs;
@@ -1277,7 +1354,6 @@ function renderGameStatsHTML(ev, sum, opts = {}) {
         data-fls="${gv('fouls')}">
         <td>${link}</td>
         <td class="bs-icon">${computeIcon(p)}</td>
-        <td>${gv('minutes')}</td>
         <td>${gv('points')}</td>
         <td>${gv('rebounds')}</td>
         <td>${gv('assists')}</td>
@@ -1285,6 +1361,7 @@ function renderGameStatsHTML(ev, sum, opts = {}) {
         <td>${gv('blocks')}</td>
         <td>${tpt}</td>
         <td>${gv('fouls')}</td>
+        <td>${gv('minutes')}</td>
       </tr>`;
     }).join('');
     return `
@@ -1294,7 +1371,6 @@ function renderGameStatsHTML(ev, sum, opts = {}) {
           <thead><tr>
             <th data-sort-key="name">Player</th>
             <th></th>
-            <th data-sort-key="min" data-numeric>MIN</th>
             <th data-sort-key="pts" data-numeric class="bs-active sort-desc">PTS</th>
             <th data-sort-key="reb" data-numeric>REB</th>
             <th data-sort-key="ast" data-numeric>AST</th>
@@ -1302,6 +1378,7 @@ function renderGameStatsHTML(ev, sum, opts = {}) {
             <th data-sort-key="blk" data-numeric>BLK</th>
             <th data-sort-key="tpt" data-numeric title="3-pointers made/attempted">3PT</th>
             <th data-sort-key="fls" data-numeric>FLS</th>
+            <th data-sort-key="min" data-numeric>MIN</th>
           </tr></thead>
           <tbody>${rows}</tbody>
         </table>
