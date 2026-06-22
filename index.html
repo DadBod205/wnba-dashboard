@@ -1002,25 +1002,36 @@ function topN(players, statIdx, n) {
 // flagrants — those only appear in the play-by-play text. Parse them out and
 // attribute to players by the name that leads each play description, e.g.
 // "Kierstan Bell technical foul" or "Isabelle Harrison flagrant foul type 2".
-// Returns { "lowercase player name": { tech, fl1, fl2 } }.
+// Coach/bench technicals are logged anonymously as a bare "technical foul" with
+// no name/team, so we can only tally them as benchTech (unattributed).
+// Returns { byPlayer: { "lowercase name": {tech,fl1,fl2} }, benchTech: number }.
 function parseFoulExtras(sum) {
-  const map = {};
+  const byPlayer = {};
+  let benchTech = 0;
   const plays = sum?.plays || [];
   const bump = (name, key) => {
     const k = (name || '').trim().toLowerCase();
     if (!k) return;
-    (map[k] = map[k] || { tech: 0, fl1: 0, fl2: 0 })[key]++;
+    (byPlayer[k] = byPlayer[k] || { tech: 0, fl1: 0, fl2: 0 })[key]++;
   };
   plays.forEach(p => {
     const t = (p.text || '').trim();
     if (!t || /free throw/i.test(t)) return; // skip the resulting free-throw plays
     let m = t.match(/^(.+?)\s+flagrant foul type\s*(\d)/i);
     if (m) { bump(m[1], m[2] === '2' ? 'fl2' : 'fl1'); return; }
-    // Personal technical only — skip "defensive 3-seconds" team technicals.
+    if (!/technical foul/i.test(t)) return;
+    // "Defensive 3-seconds" is a team technical, not charged to the player — skip.
+    if (/defensive 3-seconds/i.test(t)) return;
+    // Coach / bench technical: ESPN logs it as a bare "technical foul", no name.
+    if (/^technical foul$/i.test(t)) { benchTech++; return; }
+    // Double technical: "Double technical foul: A and B" → one each.
+    m = t.match(/^double technical foul:\s*(.+)$/i);
+    if (m) { m[1].split(/\s+and\s+|,\s*/i).forEach(n => bump(n, 'tech')); return; }
+    // Personal technical: "Player Name technical foul".
     m = t.match(/^(.+?)\s+technical foul\b/i);
-    if (m && !/defensive 3-seconds/i.test(t)) bump(m[1], 'tech');
+    if (m) bump(m[1], 'tech');
   });
-  return map;
+  return { byPlayer, benchTech };
 }
 
 // Build the inner stats HTML (top scorers/rebounders + shooting lines) for a single game.
@@ -1239,20 +1250,20 @@ function renderGameStatsHTML(ev, sum, opts = {}) {
     // --- Technicals & Flagrants ---
     const tfList = [];
     Object.values(playersByTeam).forEach(ps => ps.forEach(p => {
-      const ex = extras[p.name.trim().toLowerCase()];
+      const ex = extras.byPlayer[p.name.trim().toLowerCase()];
       if (ex && (ex.tech > 0 || ex.fl1 > 0 || ex.fl2 > 0)) {
         tfList.push({ ...p, tech: ex.tech, fl1: ex.fl1, fl2: ex.fl2 });
       }
     }));
     let tfHtml = '';
-    if (tfList.length) {
+    if (tfList.length || extras.benchTech > 0) {
       // Sort by ejection-worthiness, then flagrant severity, then technicals.
       const ejected = (p) => (p.fl2 > 0 || p.tech >= 2) ? 1 : 0;
       tfList.sort((a, b) =>
         (ejected(b) - ejected(a)) ||
         ((b.fl2 * 2 + b.fl1) - (a.fl2 * 2 + a.fl1)) ||
         (b.tech - a.tech));
-      const rows = tfList.map(p => {
+      let rows = tfList.map(p => {
         const icon = ejected(p) ? '<span class="foul-out" title="Ejected">✖</span>' : '';
         let flHtml = '';
         if (p.fl2 > 0)      flHtml = `<span class="foul-fl2" title="Flagrant 2 (ejection)">F2</span>`;
@@ -1265,6 +1276,16 @@ function renderGameStatsHTML(ev, sum, opts = {}) {
           <span class="foul-count">${flHtml}</span>
         </div>`;
       }).join('');
+      // Coach/bench technicals — ESPN doesn't attribute these to a name or team.
+      if (extras.benchTech > 0) {
+        rows += `<div class="tf-row">
+          <span class="foul-icon"></span>
+          <span style="color:var(--muted)">—</span>
+          <span class="foul-name" style="color:var(--muted); font-style:italic" title="Coach or bench technical (ESPN doesn't name who)">Bench / Coach</span>
+          <span class="foul-count">${extras.benchTech}</span>
+          <span class="foul-count"></span>
+        </div>`;
+      }
       tfHtml = `
         <div class="foul-leaderboard">
           <h4>Technicals &amp; Flagrants</h4>
