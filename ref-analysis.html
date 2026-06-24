@@ -36,6 +36,18 @@
     background: repeating-linear-gradient(90deg, #111 0 16px, #fff 16px 32px);
   }
   .header-inner { padding: 14px 18px; position: relative; }
+  .jersey-link {
+    position: absolute; top: 12px; right: 16px;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    text-decoration: none; color: var(--ink);
+  }
+  .jersey-link svg { display: block; transition: transform 0.12s ease; }
+  .jersey-link:hover svg { transform: scale(1.06); }
+  .jersey-link span {
+    font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+  .rev { position: absolute; bottom: 8px; right: 14px; font-size: 10px; color: var(--muted); }
   h1.title {
     margin: 0;
     font-size: 30px;
@@ -117,6 +129,34 @@
   <div class="header-card">
     <div class="stripes"></div>
     <div class="header-inner">
+      <a class="jersey-link" href="https://pr.nba.com/wp-content/uploads/sites/46/2026/05/2026-WNBA-Referee-Headshots.pdf" target="_blank" rel="noopener" title="WNBA referee headshots — see who's who">
+        <svg width="46" height="50" viewBox="0 0 100 110" xmlns="http://www.w3.org/2000/svg" aria-label="WNBA referee jersey">
+          <defs>
+            <pattern id="refpin" width="5" height="12" patternUnits="userSpaceOnUse">
+              <rect width="5" height="12" fill="#f1f1f1"/>
+              <rect width="1.1" height="12" fill="#6f6f6f"/>
+            </pattern>
+            <clipPath id="jerseyClip">
+              <path d="M33,16 L43,16 Q50,24 57,16 L67,16 L89,31 L78,47 L72,43 L72,99 L28,99 L28,43 L22,47 L11,31 Z"/>
+            </clipPath>
+          </defs>
+          <!-- solid black base = sleeves, shoulders, collar -->
+          <path d="M33,16 L43,16 Q50,24 57,16 L67,16 L89,31 L78,47 L72,43 L72,99 L28,99 L28,43 L22,47 L11,31 Z" fill="#1a1a1a"/>
+          <!-- light pinstriped front torso -->
+          <g clip-path="url(#jerseyClip)">
+            <rect x="30" y="30" width="40" height="70" fill="url(#refpin)"/>
+          </g>
+          <!-- orange collar ring (WNBA accent) -->
+          <path d="M34,17 Q50,31 66,17" fill="none" stroke="#FF6720" stroke-width="3" stroke-linecap="round"/>
+          <!-- whistle on lanyard -->
+          <path d="M50,29 q4,11 0,19" fill="none" stroke="#111" stroke-width="1.3"/>
+          <rect x="46.5" y="47" width="7" height="4.5" rx="2" fill="#111"/>
+          <!-- outline -->
+          <path d="M33,16 L43,16 Q50,24 57,16 L67,16 L89,31 L78,47 L72,43 L72,99 L28,99 L28,43 L22,47 L11,31 Z"
+                fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linejoin="round"/>
+        </svg>
+        <span>Who's who?</span>
+      </a>
       <h1 class="title"><span class="whistle">🦓</span> Ref Analysis</h1>
       <div class="subtitle">
         WNBA officiating crews &amp; foul tendencies ·
@@ -132,6 +172,7 @@
         </label>
         <button class="btn ghost" id="refreshBtn">Refresh data</button>
       </div>
+      <div class="rev">Version 1.0</div>
     </div>
   </div>
 
