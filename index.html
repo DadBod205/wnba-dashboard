@@ -475,6 +475,19 @@
     line-height: 1.5;
   }
   .game-meta-info strong { color: var(--text); font-weight: 600; }
+  .ref-chief { font-weight: 700; }
+  .ref-cc {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--wnba-orange);
+    border: 1px solid var(--wnba-orange);
+    border-radius: 3px;
+    padding: 0 3px;
+    vertical-align: 1px;
+    cursor: help;
+  }
 
   table.standings { width: 100%; border-collapse: collapse; font-size: 14px; }
   table.standings th, table.standings td { padding: 6px 8px; text-align: right; border-bottom: 1px solid #efeff3; }
@@ -1458,17 +1471,25 @@ function renderGameStatsHTML(ev, sum, opts = {}) {
   // not the play-by-play / color analyst / sideline reporter crew, so we can't list them.
   let metaHtml = '';
   if (includeMeta) {
-    // ESPN doesn't expose links for officials, so we fall back to a Google search.
-    // If ESPN ever adds a `links` array (same convention used for athletes) we use that instead.
+    // ESPN labels every official generically as "Referee" (no Crew Chief / Umpire roles),
+    // but lists the crew in gamebook order (Crew Chief first). We sort by `order` and tag
+    // the first as crew chief — inferred from listing order, not an explicit ESPN field.
+    // Names link out (ESPN player-card link if present, else a Google search).
     const officials = (sum.gameInfo?.officials || [])
+      .slice()
+      .sort((a, b) => (a.order ?? 99) - (b.order ?? 99))
       .slice(0, 3)
-      .map(o => {
+      .map((o, i) => {
         const name = o.displayName || o.fullName;
         if (!name) return null;
         const link = o.links?.find(l => (l.rel || []).includes('playercard'))?.href
           || o.links?.[0]?.href
           || `https://www.google.com/search?q=${encodeURIComponent(name + ' WNBA referee')}`;
-        return `<a class="player-link" href="${link}" target="_blank" rel="noopener">${name}</a>`;
+        const cls = i === 0 ? 'player-link ref-chief' : 'player-link';
+        const cc = i === 0
+          ? ' <span class="ref-cc" title="Crew chief (inferred from listing order)">CC</span>'
+          : '';
+        return `<a class="${cls}" href="${link}" target="_blank" rel="noopener">${name}</a>${cc}`;
       })
       .filter(Boolean);
     const lines = [];
@@ -1498,7 +1519,7 @@ async function renderHighlights(events) {
           ${teamSpan(home.team.abbreviation, urls.gamecast)} ${home.score}
           <a class="box-link" href="${urls.boxscore}" target="_blank" rel="noopener" title="Box score">${BOXSCORE_ICON_SVG}</a>
         </div>
-        ${renderGameStatsHTML(ev, sum, { splitByTeam: true, multiStat: true, includeFouls: true, enableTabs: true })}
+        ${renderGameStatsHTML(ev, sum, { splitByTeam: true, multiStat: true, includeFouls: true, enableTabs: true, includeMeta: true })}
       </div>`;
   }).join('');
 
@@ -1751,7 +1772,7 @@ async function renderTodayGames() {
             <span style="flex:1"></span>
             <span style="color:var(--muted); font-size:13px; font-weight:600;">Final${ev.status?.type?.shortDetail && ev.status.type.shortDetail !== 'Final' ? ' ' + ev.status.type.shortDetail.replace(/^Final\s*/i,'') : ''}</span>
           </div>
-          ${renderGameStatsHTML(ev, sum, { splitByTeam: true, multiStat: true, includeFouls: true, enableTabs: true })}
+          ${renderGameStatsHTML(ev, sum, { splitByTeam: true, multiStat: true, includeFouls: true, enableTabs: true, includeMeta: true })}
         </div>`;
     }
 
