@@ -54,9 +54,10 @@
     font-weight: 900;
     letter-spacing: 1px;
     text-transform: uppercase;
+    padding-right: 76px; /* clear the jersey/who's-who in the top-right */
   }
   h1.title .whistle { font-weight: 400; }
-  .subtitle { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .subtitle { color: var(--muted); font-size: 12px; margin-top: 4px; padding-right: 76px; }
   .subtitle a { color: var(--ink); font-weight: 600; }
   .toolbar { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .toolbar label { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
@@ -109,9 +110,20 @@
   tbody tr.active a { color: #fff; }
   .refnum { display:inline-block; min-width: 20px; text-align:center; font-weight:800;
     border:1px solid #111; border-radius:4px; padding:0 4px; margin-left:6px; font-size:11px; }
-  .crewcell a { color: inherit; text-decoration: none; cursor: pointer; }
-  .crewcell a:hover { text-decoration: underline; }
   .cc-badge { font-size: 9px; font-weight: 800; border:1px solid #111; border-radius:3px; padding:0 3px; margin-left:4px; vertical-align:1px; }
+  /* crew member cell (game log): name + CC badge + number, highlighted when filtered */
+  .crew { display: inline-flex; align-items: center; gap: 4px; padding: 1px 4px; border-radius: 4px; }
+  .crew a { color: inherit; text-decoration: none; cursor: pointer; }
+  .crew a:hover { text-decoration: underline; }
+  .crew-num { font-size: 10px; font-weight: 700; color: var(--muted); border:1px solid var(--line); border-radius:3px; padding:0 3px; }
+  .crew.crew-active { background: #FF6720; }
+  .crew.crew-active, .crew.crew-active a { color: #111; font-weight: 800; }
+  .crew.crew-active .cc-badge { border-color:#111; }
+  .crew.crew-active .crew-num { color:#111; border-color:#111; }
+  /* draggable column headers */
+  thead th[draggable="true"] { cursor: grab; }
+  thead th.dragging { opacity: 0.35; }
+  thead th.drop-target { box-shadow: inset 3px 0 0 #FF6720; }
   .loading, .err { font-style: italic; color: var(--muted); padding: 8px 0; }
   .err { color: #c00; font-style: normal; }
   .scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -146,6 +158,16 @@
           <g clip-path="url(#jerseyClip)">
             <rect x="30" y="30" width="40" height="70" fill="url(#refpin)"/>
           </g>
+          <!-- orange & white basketball patch (upper-left chest) -->
+          <g transform="translate(40,45)">
+            <circle r="4.4" fill="#F47C20"/>
+            <g stroke="#fff" stroke-width="0.7" fill="none" stroke-linecap="round">
+              <line x1="0" y1="-4.4" x2="0" y2="4.4"/>
+              <path d="M-4.4,0 Q0,1.4 4.4,0"/>
+              <path d="M-2.1,-3.9 Q0.6,0 -2.1,3.9"/>
+              <path d="M2.1,-3.9 Q-0.6,0 2.1,3.9"/>
+            </g>
+          </g>
           <!-- orange collar ring (WNBA accent) -->
           <path d="M34,17 Q50,31 66,17" fill="none" stroke="#FF6720" stroke-width="3" stroke-linecap="round"/>
           <!-- whistle on lanyard -->
@@ -170,7 +192,8 @@
         <label>Min games:
           <input type="number" id="minGames" value="1" min="1" style="width:62px">
         </label>
-        <button class="btn ghost" id="refreshBtn">Refresh data</button>
+        <button class="btn ghost" id="refreshBtn" title="Re-read the latest from the Google Sheet">Reload</button>
+        <button class="btn" id="espnBtn" title="Pull the newest games from ESPN now">⟳ Update from ESPN</button>
       </div>
       <div class="rev">Version 1.0</div>
     </div>
@@ -180,45 +203,29 @@
     <h2>Referee Summary <span class="tag" id="refCount"></span></h2>
     <p class="note">
       Per-referee averages across every game they worked (any crew slot). Click a referee to filter the game log below.
+      <strong>Click a column header to sort; drag a header to reorder columns.</strong>
       Note: officials work in 3-person crews and the data can't isolate who called what, so these are crew-influenced
       averages, not pure individual ones. PF = personal fouls (both teams), Tech = technicals, Flag = flagrants.
     </p>
     <div class="scroll-x">
       <table id="refTable">
-        <thead><tr>
-          <th class="txt" data-key="name" data-type="text">Referee</th>
-          <th data-key="num"  data-type="num">#</th>
-          <th data-key="games" data-type="num">Games</th>
-          <th data-key="avgPf" data-type="num">Avg PF</th>
-          <th data-key="avgTech" data-type="num">Avg Tech</th>
-          <th data-key="avgFlag" data-type="num">Avg Flag</th>
-          <th data-key="avgTotal" data-type="num">Avg Total</th>
-        </tr></thead>
-        <tbody><tr><td colspan="7" class="loading">Loading…</td></tr></tbody>
+        <thead></thead>
+        <tbody><tr><td class="loading">Loading…</td></tr></tbody>
       </table>
     </div>
   </div>
 
   <div class="card">
     <h2>Game Log <span class="tag" id="gameCount"></span></h2>
+    <p class="note">Newest games first. Click a column header to sort; drag a header to reorder columns. Click any referee to filter.</p>
     <div class="filter-banner" id="filterBanner">
       <span id="filterText"></span>
       <button id="clearFilter">Clear ✕</button>
     </div>
     <div class="scroll-x">
       <table id="gameTable">
-        <thead><tr>
-          <th class="txt" data-key="date" data-type="text">Date</th>
-          <th class="txt" data-key="match" data-type="text">Matchup</th>
-          <th class="txt" data-key="venue" data-type="text">Venue</th>
-          <th class="txt" data-key="cc" data-type="text">Crew Chief</th>
-          <th class="txt" data-key="r2" data-type="text">Ref 2</th>
-          <th class="txt" data-key="r3" data-type="text">Ref 3</th>
-          <th data-key="pf" data-type="num">PF</th>
-          <th data-key="tech" data-type="num">Tech</th>
-          <th data-key="flag" data-type="num">Flag</th>
-        </tr></thead>
-        <tbody><tr><td colspan="9" class="loading">Loading…</td></tr></tbody>
+        <thead></thead>
+        <tbody><tr><td class="loading">Loading…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -227,6 +234,8 @@
 
 <script>
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSa1pkwACeVGgFpYU8lW3NyiW0OBl4N5X225ACs55YPYsleIat2SZvhIPZibBRymtsvqHgX4cw8p5kL/pub?gid=624487208&single=true&output=csv';
+// Apps Script web app — triggers an on-demand pull from ESPN and returns fresh data.
+const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxC64qNDreY9pGi6EdV64AnFJC4uA7Dvuxl6W_PpBoqBJVgwkrPjFNSeXLnQgi7OXk1KQ/exec';
 
 let GAMES = [];   // array of game objects
 let REFS = [];    // aggregated ref objects
@@ -283,89 +292,149 @@ function aggregate(games) {
   }));
 }
 
-// --- generic table sort ---
-function makeSortable(tableId, getRows, render) {
-  const table = document.getElementById(tableId);
-  let curKey = null, curDir = 1;
-  table.querySelectorAll('thead th').forEach(th => {
-    th.addEventListener('click', () => {
-      const key = th.dataset.key, type = th.dataset.type;
-      if (curKey === key) curDir = -curDir; else { curKey = key; curDir = (type === 'num') ? -1 : 1; }
-      table.querySelectorAll('thead th').forEach(h => h.classList.remove('sorted-asc','sorted-desc'));
-      th.classList.add(curDir === 1 ? 'sorted-asc' : 'sorted-desc');
-      const rows = getRows().slice().sort((a, b) => {
-        let av = a[key], bv = b[key];
-        if (type === 'num') { av = +av || 0; bv = +bv || 0; return (av - bv) * curDir; }
-        return String(av).localeCompare(String(bv)) * curDir;
-      });
-      render(rows);
-    });
-  });
-}
+function escAttr(s){ return String(s).replace(/"/g,'&quot;'); }
 
-// --- renderers ---
-function refLink(name, numTxt, isCC) {
-  return `<a data-ref="${name.replace(/"/g,'&quot;')}">${name}${isCC ? '<span class="cc-badge" title="Crew chief">CC</span>' : ''}</a>`;
-}
-
-function renderRefs(rows) {
-  const min = num(document.getElementById('minGames').value) || 1;
-  const body = document.querySelector('#refTable tbody');
-  const shown = rows.filter(r => r.games >= min);
-  document.getElementById('refCount').textContent = shown.length + ' refs';
-  if (!shown.length) { body.innerHTML = '<tr><td colspan="7" class="loading">No referees meet the filter.</td></tr>'; return; }
-  body.innerHTML = shown.map(r => `
-    <tr class="refrow ${r.name === activeRef ? 'active' : ''}" data-ref="${r.name.replace(/"/g,'&quot;')}">
-      <td class="txt">${r.name}</td>
-      <td>${r.num || ''}</td>
-      <td>${r.games}</td>
-      <td>${fmt(r.avgPf)}</td>
-      <td>${fmt(r.avgTech)}</td>
-      <td>${fmt(r.avgFlag)}</td>
-      <td>${fmt(r.avgTotal)}</td>
-    </tr>`).join('');
-  body.querySelectorAll('tr.refrow').forEach(tr => {
-    tr.addEventListener('click', () => setFilter(tr.dataset.ref));
-  });
+// Game-log crew cell: name (clickable) + CC badge + jersey number, highlighted when filtered.
+function crewCell(name, numTxt, isCC) {
+  if (!name) return '';
+  const active = name === activeRef;
+  const cc  = isCC ? '<span class="cc-badge" title="Crew chief">CC</span>' : '';
+  const nb  = numTxt ? `<span class="crew-num">${numTxt}</span>` : '';
+  return `<span class="crew ${active ? 'crew-active' : ''}"><a data-ref="${escAttr(name)}">${name}</a>${cc}${nb}</span>`;
 }
 
 function gameRowObjs(games) {
   return games.map(g => ({
     date: g.Date, match: `${g.Away} @ ${g.Home}`, venue: g.Venue || g.City || '',
     cc: g.CC, r2: g['Ref 2'], r3: g['Ref 3'],
+    ccNum: g['CC #'], r2Num: g['Ref 2 #'], r3Num: g['Ref 3 #'],
     pf: num(g['Total PF']), tech: num(g['Total Tech']), flag: num(g['Total Flag']),
-    _raw: g,
   }));
 }
 
-function renderGames(rows) {
-  const body = document.querySelector('#gameTable tbody');
-  const filtered = activeRef
-    ? rows.filter(r => [r.cc, r2v(r), r3v(r)].includes(activeRef))
-    : rows;
-  document.getElementById('gameCount').textContent = filtered.length + ' games';
-  if (!filtered.length) { body.innerHTML = '<tr><td colspan="9" class="loading">No games.</td></tr>'; return; }
-  const crew = (name, isCC) => `<span class="crewcell">${refLink(name, '', isCC)}</span>`;
-  body.innerHTML = filtered.map(r => `
-    <tr>
-      <td class="txt">${r.date}</td>
-      <td class="txt">${r.match}</td>
-      <td class="txt">${r.venue}</td>
-      <td class="txt">${r.cc ? crew(r.cc, true) : ''}</td>
-      <td class="txt">${r.r2 ? crew(r.r2, false) : ''}</td>
-      <td class="txt">${r.r3 ? crew(r.r3, false) : ''}</td>
-      <td>${r.pf}</td>
-      <td>${r.tech}</td>
-      <td>${r.flag}</td>
-    </tr>`).join('');
-  body.querySelectorAll('a[data-ref]').forEach(a => {
-    a.addEventListener('click', () => setFilter(a.dataset.ref));
-  });
+// --- column definitions ---
+const REF_COLUMNS = {
+  name:     { label:'Referee',   type:'text', txt:true, cell:r=>r.name,            val:r=>r.name },
+  num:      { label:'#',         type:'num',  cell:r=>r.num||'',                    val:r=>+r.num||0 },
+  games:    { label:'Games',     type:'num',  cell:r=>r.games,                      val:r=>r.games },
+  avgPf:    { label:'Avg PF',    type:'num',  cell:r=>fmt(r.avgPf),                 val:r=>r.avgPf },
+  avgTech:  { label:'Avg Tech',  type:'num',  cell:r=>fmt(r.avgTech),               val:r=>r.avgTech },
+  avgFlag:  { label:'Avg Flag',  type:'num',  cell:r=>fmt(r.avgFlag),               val:r=>r.avgFlag },
+  avgTotal: { label:'Avg Total', type:'num',  cell:r=>fmt(r.avgTotal),              val:r=>r.avgTotal },
+};
+const REF_DEFAULT = ['name','num','games','avgPf','avgTech','avgFlag','avgTotal'];
+
+const GAME_COLUMNS = {
+  date:  { label:'Date',       type:'text', txt:true, cell:r=>r.date,                       val:r=>r.date },
+  match: { label:'Matchup',    type:'text', txt:true, cell:r=>r.match,                      val:r=>r.match },
+  venue: { label:'Venue',      type:'text', txt:true, cell:r=>r.venue,                      val:r=>r.venue },
+  cc:    { label:'Crew Chief', type:'text', txt:true, cell:r=>crewCell(r.cc,r.ccNum,true),  val:r=>r.cc },
+  r2:    { label:'Ref 2',      type:'text', txt:true, cell:r=>crewCell(r.r2,r.r2Num,false), val:r=>r.r2 },
+  r3:    { label:'Ref 3',      type:'text', txt:true, cell:r=>crewCell(r.r3,r.r3Num,false), val:r=>r.r3 },
+  pf:    { label:'PF',         type:'num',  cell:r=>r.pf,                                   val:r=>r.pf },
+  tech:  { label:'Tech',       type:'num',  cell:r=>r.tech,                                 val:r=>r.tech },
+  flag:  { label:'Flag',       type:'num',  cell:r=>r.flag,                                 val:r=>r.flag },
+};
+const GAME_DEFAULT = ['date','match','venue','cc','r2','r3','pf','tech','flag'];
+
+// --- generic table: column-driven render, click-to-sort, drag-to-reorder ---
+function makeTable(opts) {
+  const table = document.getElementById(opts.tableId);
+  let order = loadOrder(opts.lsKey, opts.defaultOrder, opts.columns);
+  let sortKey = opts.defaultSort.key, sortDir = opts.defaultSort.dir;
+  let dragKey = null, justDragged = false;
+
+  function render() {
+    const cols = order.map(k => ({ key:k, ...opts.columns[k] }));
+    table.querySelector('thead').innerHTML = '<tr>' + cols.map(c => {
+      const s = c.key === sortKey ? (sortDir === 1 ? 'sorted-asc' : 'sorted-desc') : '';
+      return `<th class="${c.txt?'txt':''} ${s}" data-key="${c.key}" draggable="true" title="Click to sort · drag to reorder">${c.label}</th>`;
+    }).join('') + '</tr>';
+
+    let rows = opts.getRows().slice();
+    const col = opts.columns[sortKey];
+    if (col) rows.sort((a,b) => {
+      const av = col.val(a), bv = col.val(b);
+      if (col.type === 'num') return ((+av||0) - (+bv||0)) * sortDir;
+      return String(av).localeCompare(String(bv)) * sortDir;
+    });
+
+    const tb = table.querySelector('tbody');
+    if (!rows.length) { tb.innerHTML = `<tr><td colspan="${cols.length}" class="loading">No data.</td></tr>`; }
+    else tb.innerHTML = rows.map(r => {
+      const cls = opts.rowClass ? opts.rowClass(r) : '';
+      const attr = opts.rowAttr ? opts.rowAttr(r) : '';
+      return `<tr class="${cls}" ${attr}>` + cols.map(c => `<td class="${c.txt?'txt':''}">${c.cell(r)}</td>`).join('') + '</tr>';
+    }).join('');
+
+    wireHeaders();
+    if (opts.onAfter) opts.onAfter(rows);
+  }
+
+  function wireHeaders() {
+    table.querySelectorAll('thead th').forEach(th => {
+      th.addEventListener('click', () => {
+        if (justDragged) { justDragged = false; return; }
+        const k = th.dataset.key;
+        if (sortKey === k) sortDir = -sortDir;
+        else { sortKey = k; sortDir = (opts.columns[k].type === 'num') ? -1 : 1; }
+        render();
+      });
+      th.addEventListener('dragstart', e => { dragKey = th.dataset.key; th.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+      th.addEventListener('dragend',   () => { th.classList.remove('dragging'); table.querySelectorAll('th').forEach(h=>h.classList.remove('drop-target')); });
+      th.addEventListener('dragover',  e => { e.preventDefault(); th.classList.add('drop-target'); });
+      th.addEventListener('dragleave', () => th.classList.remove('drop-target'));
+      th.addEventListener('drop', e => {
+        e.preventDefault();
+        const from = order.indexOf(dragKey), to = order.indexOf(th.dataset.key);
+        if (from >= 0 && to >= 0 && from !== to) {
+          order.splice(to, 0, order.splice(from, 1)[0]);
+          saveOrder(opts.lsKey, order);
+          justDragged = true;
+          render();
+        }
+      });
+    });
+  }
+
+  return { render };
 }
-function r2v(r){ return r.r2; } function r3v(r){ return r.r3; }
+function loadOrder(key, def, columns) {
+  try {
+    const s = JSON.parse(localStorage.getItem(key) || 'null');
+    if (Array.isArray(s) && s.length === def.length && s.every(k => columns[k])) return s;
+  } catch (e) {}
+  return def.slice();
+}
+function saveOrder(key, order) { try { localStorage.setItem(key, JSON.stringify(order)); } catch (e) {} }
+
+// --- build the two tables ---
+const refTable = makeTable({
+  tableId: 'refTable', columns: REF_COLUMNS, defaultOrder: REF_DEFAULT, lsKey: 'ref-colorder',
+  defaultSort: { key: 'avgPf', dir: -1 },
+  getRows: () => { const min = num(document.getElementById('minGames').value) || 1; return REFS.filter(r => r.games >= min); },
+  rowClass: r => 'refrow' + (r.name === activeRef ? ' active' : ''),
+  rowAttr: r => `data-ref="${escAttr(r.name)}"`,
+  onAfter: rows => {
+    document.getElementById('refCount').textContent = rows.length + ' refs';
+    document.querySelectorAll('#refTable tbody tr.refrow').forEach(tr =>
+      tr.addEventListener('click', () => setFilter(tr.dataset.ref)));
+  },
+});
+const gameTable = makeTable({
+  tableId: 'gameTable', columns: GAME_COLUMNS, defaultOrder: GAME_DEFAULT, lsKey: 'game-colorder',
+  defaultSort: { key: 'date', dir: -1 },  // most recent first
+  getRows: () => { let r = gameRowObjs(GAMES); return activeRef ? r.filter(g => [g.cc, g.r2, g.r3].includes(activeRef)) : r; },
+  onAfter: rows => {
+    document.getElementById('gameCount').textContent = rows.length + ' games';
+    document.querySelectorAll('#gameTable a[data-ref]').forEach(a =>
+      a.addEventListener('click', e => { e.stopPropagation(); setFilter(a.dataset.ref); }));
+  },
+});
 
 // --- filtering ---
 function setFilter(name) {
+  const wasOff = !activeRef;
   activeRef = (activeRef === name) ? '' : name;
   document.getElementById('refPick').value = activeRef;
   const banner = document.getElementById('filterBanner');
@@ -375,46 +444,90 @@ function setFilter(name) {
   } else {
     banner.classList.remove('on');
   }
-  renderRefs(REFS);
-  renderGames(gameRowObjs(GAMES));
-  document.getElementById('gameTable').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  refTable.render();
+  gameTable.render();
+  if (activeRef) document.getElementById('gameTable').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // --- load ---
 async function load() {
-  const refBody = document.querySelector('#refTable tbody');
-  const gameBody = document.querySelector('#gameTable tbody');
-  refBody.innerHTML = '<tr><td colspan="7" class="loading">Loading…</td></tr>';
   try {
     const res = await fetch(CSV_URL + '&_cb=' + Date.now());
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    const text = await res.text();
-    GAMES = toObjects(parseCSV(text));
+    GAMES = toObjects(parseCSV(await res.text()));
     REFS = aggregate(GAMES);
-    // default sort: Avg PF desc
-    REFS.sort((a, b) => b.avgPf - a.avgPf);
-    // populate ref dropdown
     const pick = document.getElementById('refPick');
     pick.innerHTML = '<option value="">— all —</option>' +
       REFS.slice().sort((a,b)=>a.name.localeCompare(b.name))
-        .map(r => `<option value="${r.name.replace(/"/g,'&quot;')}">${r.name}</option>`).join('');
-    renderRefs(REFS);
-    renderGames(gameRowObjs(GAMES));
+        .map(r => `<option value="${escAttr(r.name)}">${r.name}</option>`).join('');
+    pick.value = activeRef;
+    refTable.render();
+    gameTable.render();
     document.getElementById('lastLoaded').textContent =
       'Loaded ' + GAMES.length + ' games · ' + new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }) + ' CT';
   } catch (e) {
-    refBody.innerHTML = `<tr><td colspan="7" class="err">Couldn't load data: ${e.message}</td></tr>`;
-    gameBody.innerHTML = '';
+    document.querySelector('#refTable tbody').innerHTML = `<tr><td class="err">Couldn't load data: ${e.message}</td></tr>`;
   }
 }
 
-// wire controls
-makeSortable('refTable', () => REFS, renderRefs);
-makeSortable('gameTable', () => gameRowObjs(GAMES), renderGames);
-document.getElementById('minGames').addEventListener('input', () => renderRefs(REFS));
-document.getElementById('refPick').addEventListener('change', e => { activeRef=''; setFilter(e.target.value); });
+// --- on-demand update from ESPN (via the Apps Script web app) ---
+// Apps Script web apps don't send CORS headers, so we use JSONP (script tag) to both
+// trigger the update and read the fresh data it returns.
+function jsonp(url, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const cb = '__refcb' + Date.now() + Math.floor(Math.random() * 1e4);
+    const s = document.createElement('script');
+    let done = false;
+    const cleanup = () => { try { delete window[cb]; } catch (e) { window[cb] = undefined; } s.remove(); };
+    window[cb] = data => { done = true; cleanup(); resolve(data); };
+    s.onerror = () => { if (!done) { cleanup(); reject(new Error('request failed')); } };
+    s.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cb;
+    document.body.appendChild(s);
+    setTimeout(() => { if (!done) { cleanup(); reject(new Error('timed out')); } }, timeoutMs || 90000);
+  });
+}
+function rowsToObjects(rows) {
+  if (!rows || rows.length < 2) return [];
+  const head = rows[0].map(h => String(h).trim());
+  return rows.slice(1).filter(r => r.length > 1 && r[0]).map(r => {
+    const o = {}; head.forEach((h, i) => o[h] = (r[i] == null ? '' : String(r[i]).trim()));
+    if (o.Date) { const m = o.Date.match(/^(\d{4}-\d{2}-\d{2})/); if (m) o.Date = m[1]; }
+    return o;
+  });
+}
+async function updateFromESPN() {
+  const btn = document.getElementById('espnBtn');
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '⟳ Updating…';
+  try {
+    const data = await jsonp(WEBAPP_URL, 120000);
+    if (data.error) throw new Error(data.error);
+    const objs = rowsToObjects(data.rows || []);
+    if (objs.length) {
+      GAMES = objs;
+      REFS = aggregate(GAMES);
+      const pick = document.getElementById('refPick');
+      pick.innerHTML = '<option value="">— all —</option>' +
+        REFS.slice().sort((a,b)=>a.name.localeCompare(b.name))
+          .map(r => `<option value="${escAttr(r.name)}">${r.name}</option>`).join('');
+      pick.value = activeRef;
+      refTable.render(); gameTable.render();
+      document.getElementById('lastLoaded').textContent =
+        'Updated ' + GAMES.length + ' games · ' + new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }) + ' CT';
+    }
+    btn.textContent = data.added > 0 ? `✓ +${data.added} new` : '✓ Up to date';
+  } catch (e) {
+    btn.textContent = '✕ ' + e.message;
+  } finally {
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 3000);
+  }
+}
+
+document.getElementById('minGames').addEventListener('input', () => refTable.render());
+document.getElementById('refPick').addEventListener('change', e => { activeRef = ''; setFilter(e.target.value); });
 document.getElementById('clearFilter').addEventListener('click', () => setFilter(activeRef));
 document.getElementById('refreshBtn').addEventListener('click', load);
+document.getElementById('espnBtn').addEventListener('click', updateFromESPN);
 load();
 </script>
 </body>
