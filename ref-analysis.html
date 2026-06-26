@@ -133,16 +133,18 @@
   .namelink { cursor: pointer; }
   .namelink:hover { text-decoration: underline; }
 
-  /* Last Night's Games */
-  .ln-game { padding: 9px 0; border-bottom: 1px solid var(--line); }
+  /* Last Night's Games (compact rows) */
+  .ln-game { padding: 5px 0; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
   .ln-game:last-child { border-bottom: none; }
-  .ln-match { display: inline-block; font-weight: 800; font-size: 16px; font-variant-numeric: tabular-nums; color: inherit; text-decoration: none; }
+  .ln-match { display: inline-block; font-weight: 800; font-size: 14px; font-variant-numeric: tabular-nums; color: inherit; text-decoration: none; }
   .ln-match:hover { text-decoration: underline; }
-  .ln-match .ln-at { color: var(--muted); font-weight: 400; margin: 0 4px; }
-  .ln-match .ln-score { margin-left: 5px; }
-  .ln-meta { color: var(--muted); font-size: 12px; margin-left: 8px; font-weight: 600; }
-  .ln-crew { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 6px 10px; font-size: 13px; }
-  .ln-crew .crew-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; margin-right: 2px; }
+  .ln-match .ln-at { color: var(--muted); font-weight: 400; margin: 0 3px; }
+  .ln-match .ln-score { margin-left: 4px; }
+  .ln-meta { color: var(--muted); font-size: 11px; margin-left: 6px; font-weight: 600; }
+  .ln-crew { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-size: 12px; }
+  .ln-crew .crew-label { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; margin-right: 2px; }
+  .ln-ref { color: inherit; text-decoration: none; cursor: pointer; }
+  .ln-ref:hover { text-decoration: underline; }
 
   /* collapsible card */
   .card.collapsible > h2 { cursor: pointer; }
@@ -152,7 +154,14 @@
 
   /* selected-referee focus card */
   #focusCard[hidden] { display: none; }
-  .focus-head { display: flex; align-items: center; gap: 14px; }
+  #focusCard { position: relative; }
+  .focus-close {
+    position: absolute; top: 10px; right: 12px; width: 26px; height: 26px;
+    border-radius: 50%; border: 1px solid #111; background: #fff; color: #111;
+    font-size: 13px; font-weight: 700; line-height: 1; cursor: pointer;
+  }
+  .focus-close:hover { background: #111; color: #fff; }
+  .focus-head { display: flex; align-items: center; gap: 14px; padding-right: 30px; }
   .focus-photo { width: 76px; height: 96px; object-fit: cover; border-radius: 8px; background: #eee; cursor: pointer; flex: none; }
   .focus-name { font-size: 22px; font-weight: 900; }
   .focus-name .focus-num { font-size: 14px; font-weight: 800; border: 1px solid #111; border-radius: 4px; padding: 0 5px; margin-left: 8px; vertical-align: 3px; }
@@ -253,9 +262,9 @@
     </div>
   </div>
 
-  <div class="card">
-    <h2>Last Night's Games <span class="tag" id="lastNightDate"></span></h2>
-    <div id="lastNightBody"><div class="loading">Loading…</div></div>
+  <div class="card collapsible" id="lastNightCard">
+    <h2>Last Night's Games <span class="tag" id="lastNightDate"></span><span class="card-chevron">▼</span></h2>
+    <div class="card-body" id="lastNightBody"><div class="loading">Loading…</div></div>
   </div>
 
   <div class="card" id="focusCard" hidden>
@@ -280,18 +289,20 @@
     </div>
   </div>
 
-  <div class="card">
-    <h2>Game Log <span class="tag" id="gameCount"></span></h2>
-    <p class="note">Newest games first. Click a column header to sort; drag a header to reorder columns. Click any referee to filter.</p>
-    <div class="filter-banner" id="filterBanner">
-      <span id="filterText"></span>
-      <button id="clearFilter">Clear ✕</button>
-    </div>
-    <div class="scroll-x">
-      <table id="gameTable">
-        <thead></thead>
-        <tbody><tr><td class="loading">Loading…</td></tr></tbody>
-      </table>
+  <div class="card collapsible" id="gameLogCard">
+    <h2>Game Log <span class="tag" id="gameCount"></span><span class="card-chevron">▼</span></h2>
+    <div class="card-body">
+      <p class="note">Newest games first. Click a column header to sort; drag a header to reorder columns. Click any referee to filter.</p>
+      <div class="filter-banner" id="filterBanner">
+        <span id="filterText"></span>
+        <button id="clearFilter">Clear ✕</button>
+      </div>
+      <div class="scroll-x">
+        <table id="gameTable">
+          <thead></thead>
+          <tbody><tr><td class="loading">Loading…</td></tr></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -382,6 +393,15 @@ function crewCell(name, numTxt, isCC) {
   const cc  = isCC ? '<span class="cc-badge" title="Crew chief">CC</span>' : '';
   const nb  = numTxt ? `<span class="crew-num">${numTxt}</span>` : '';
   return `<span class="crew ${active ? 'crew-active' : ''}">${nameLink(name)}${cc}${nb}</span>`;
+}
+
+// Last Night crew cell: clicking the name SELECTS the ref (jumps to their info card),
+// rather than opening the photo popup like the game-log cells do.
+function lnCrewCell(name, numTxt, isCC) {
+  if (!name) return '';
+  const cc = isCC ? '<span class="cc-badge" title="Crew chief">CC</span>' : '';
+  const nb = numTxt ? `<span class="crew-num">${numTxt}</span>` : '';
+  return `<span class="crew"><a class="ln-ref" data-ref="${escAttr(name)}" title="See this ref's info">${name}</a>${cc}${nb}</span>`;
 }
 
 function gameRowObjs(games) {
@@ -545,7 +565,7 @@ function renderLastNight() {
   tag.textContent = label;
   el.innerHTML = games.map(g => {
     const crew = [[g.CC, g['CC #'], true], [g['Ref 2'], g['Ref 2 #'], false], [g['Ref 3'], g['Ref 3 #'], false]]
-      .filter(c => c[0]).map(([n, num, cc]) => crewCell(n, num, cc)).join('');
+      .filter(c => c[0]).map(([n, num, cc]) => lnCrewCell(n, num, cc)).join('');
     const fouls = g['Total PF'] ? `<span class="ln-meta">${g['Total PF']} fouls</span>` : '';
     const gid = g.GameID || '';
     return `<div class="ln-game">
@@ -563,6 +583,7 @@ function renderFocus() {
   card.hidden = false;
   const photo = PHOTO_DIR + encodeURIComponent(r.name) + '.jpg';
   document.getElementById('focusBody').innerHTML = `
+    <button class="focus-close" id="focusClose" title="Close &amp; clear selection" aria-label="Close">✕</button>
     <div class="focus-head">
       <img class="focus-photo namelink" data-photo="${escAttr(r.name)}" src="${photo}" alt="${escAttr(r.name)}"
            onerror="this.style.visibility='hidden'">
@@ -596,9 +617,33 @@ function setFilter(name) {
   if (activeRef) document.getElementById('focusCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-// Referee Summary is collapsible (collapsed by default in the HTML).
-document.getElementById('refSummaryToggle').addEventListener('click', () => {
-  document.getElementById('refSummaryCard').classList.toggle('collapsed');
+// Select a specific ref (no toggle) — used by the dropdown and Last Night name clicks.
+function selectRef(name) { activeRef = ''; setFilter(name); }
+
+// Close the focus card and reset the page to its default (no ref selected).
+function clearSelection() {
+  activeRef = '';
+  document.getElementById('refPick').value = '';
+  document.getElementById('filterBanner').classList.remove('on');
+  renderFocus();
+  refTable.render();
+  gameTable.render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Any collapsible card: clicking its <h2> toggles open/closed.
+document.querySelectorAll('.card.collapsible > h2').forEach(h2 => {
+  h2.addEventListener('click', () => h2.parentElement.classList.toggle('collapsed'));
+});
+
+// Clicking a referee name in Last Night's Games selects that ref (jumps to info card).
+document.addEventListener('click', e => {
+  const lr = e.target.closest('.ln-ref');
+  if (lr) { e.preventDefault(); selectRef(lr.dataset.ref); }
+});
+// Focus-card close button: clear the selection and reset.
+document.addEventListener('click', e => {
+  if (e.target.closest('.focus-close')) clearSelection();
 });
 
 // --- load ---
