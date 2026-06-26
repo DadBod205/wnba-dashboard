@@ -83,6 +83,7 @@
     display: flex; align-items: center; gap: 8px;
   }
   .card > h2 .tag { font-size: 11px; font-weight: 700; color: #fff; background: #111; border-radius: 999px; padding: 2px 8px; }
+  .gl-ref-name { color: #FF6720; font-weight: 800; text-transform: none; }
   .note { font-size: 11px; color: var(--muted); margin: 0 0 10px; line-height: 1.5; }
   .filter-banner {
     background: #111; color: #fff; font-size: 13px; font-weight: 600;
@@ -117,7 +118,7 @@
   .crew a { color: inherit; text-decoration: none; cursor: pointer; }
   .crew a:hover { text-decoration: underline; }
   .crew-num { font-size: 10px; font-weight: 700; color: var(--muted); border:1px solid var(--line); border-radius:3px; padding:0 3px; }
-  .crew.crew-active { background: #FF6720; }
+  .crew.crew-active { background: rgba(255,103,32,0.28); }
   .crew.crew-active, .crew.crew-active a { color: #111; font-weight: 800; }
   .crew.crew-active .cc-badge { border-color:#111; }
   .crew.crew-active .crew-num { color:#111; border-color:#111; }
@@ -290,7 +291,7 @@
   </div>
 
   <div class="card collapsible" id="gameLogCard">
-    <h2>Game Log <span class="tag" id="gameCount"></span><span class="card-chevron">▼</span></h2>
+    <h2>Game Log <span class="gl-ref-name" id="gameLogRefName" hidden></span><span class="tag" id="gameCount"></span><span class="card-chevron">▼</span></h2>
     <div class="card-body">
       <p class="note">Newest games first. Click a column header to sort; drag a header to reorder columns. Click any referee to filter.</p>
       <div class="filter-banner" id="filterBanner">
@@ -526,7 +527,12 @@ const gameTable = makeTable({
   tableId: 'gameTable', columns: GAME_COLUMNS, defaultOrder: GAME_DEFAULT, lsKey: 'game-colorder',
   defaultSort: { key: 'date', dir: -1 },  // most recent first
   getRows: () => { let r = gameRowObjs(GAMES); return activeRef ? r.filter(g => [g.cc, g.r2, g.r3].includes(activeRef)) : r; },
-  onAfter: rows => { document.getElementById('gameCount').textContent = rows.length + ' games'; },
+  onAfter: rows => {
+    document.getElementById('gameCount').textContent = rows.length + ' games';
+    const rn = document.getElementById('gameLogRefName');
+    rn.textContent = activeRef ? ('— ' + activeRef) : '';
+    rn.hidden = !activeRef;
+  },
 });
 
 // --- referee photo popup ---
