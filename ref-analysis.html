@@ -129,6 +129,32 @@
   .err { color: #c00; font-style: normal; }
   .scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
+  /* clickable referee name -> photo */
+  .namelink { cursor: pointer; }
+  .namelink:hover { text-decoration: underline; }
+
+  /* photo popup */
+  .photo-modal {
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0,0,0,0.72);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+  }
+  .photo-box {
+    position: relative; background: #fff; border-radius: 10px; padding: 10px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5); max-width: 340px;
+  }
+  .photo-box img { display: block; width: 300px; max-width: 78vw; height: auto; border-radius: 6px; background: #eee; }
+  .photo-caption { text-align: center; font-weight: 800; margin-top: 8px; font-size: 15px; }
+  .photo-sub { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .photo-missing { color: var(--muted); font-style: italic; padding: 40px 10px; text-align: center; }
+  .photo-close {
+    position: absolute; top: -12px; right: -12px; width: 30px; height: 30px;
+    border-radius: 50%; border: 2px solid #fff; background: #111; color: #fff;
+    font-size: 15px; font-weight: 700; line-height: 1; cursor: pointer;
+  }
+  .photo-close:hover { background: #333; }
+
   @media (max-width: 600px) {
     body { padding: 10px; }
     h1.title { font-size: 22px; }
@@ -233,6 +259,15 @@
 
 </div>
 
+<div class="photo-modal" id="photoModal" hidden>
+  <div class="photo-box">
+    <button class="photo-close" id="photoClose" aria-label="Close">✕</button>
+    <img id="photoImg" alt="" />
+    <div class="photo-caption" id="photoCaption"></div>
+    <div class="photo-sub">WNBA Official</div>
+  </div>
+</div>
+
 <script>
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSa1pkwACeVGgFpYU8lW3NyiW0OBl4N5X225ACs55YPYsleIat2SZvhIPZibBRymtsvqHgX4cw8p5kL/pub?gid=624487208&single=true&output=csv';
 // Apps Script web app — triggers an on-demand pull from ESPN and returns fresh data.
@@ -295,13 +330,20 @@ function aggregate(games) {
 
 function escAttr(s){ return String(s).replace(/"/g,'&quot;'); }
 
-// Game-log crew cell: name (clickable) + CC badge + jersey number, highlighted when filtered.
+// Referee photos live in /ref-photos/<name>.jpg on GitHub Pages.
+const PHOTO_DIR = 'ref-photos/';
+// A referee name that opens their photo when clicked.
+function nameLink(name) {
+  return `<span class="namelink" data-photo="${escAttr(name)}" title="Click for photo">${name}</span>`;
+}
+
+// Game-log crew cell: clickable name + CC badge + jersey number, highlighted when filtered.
 function crewCell(name, numTxt, isCC) {
   if (!name) return '';
   const active = name === activeRef;
   const cc  = isCC ? '<span class="cc-badge" title="Crew chief">CC</span>' : '';
   const nb  = numTxt ? `<span class="crew-num">${numTxt}</span>` : '';
-  return `<span class="crew ${active ? 'crew-active' : ''}"><a data-ref="${escAttr(name)}">${name}</a>${cc}${nb}</span>`;
+  return `<span class="crew ${active ? 'crew-active' : ''}">${nameLink(name)}${cc}${nb}</span>`;
 }
 
 function gameRowObjs(games) {
@@ -315,7 +357,7 @@ function gameRowObjs(games) {
 
 // --- column definitions ---
 const REF_COLUMNS = {
-  name:     { label:'Referee',   type:'text', txt:true, cell:r=>r.name,            val:r=>r.name },
+  name:     { label:'Referee',   type:'text', txt:true, cell:r=>nameLink(r.name),  val:r=>r.name },
   num:      { label:'#',         type:'num',  cell:r=>r.num||'',                    val:r=>+r.num||0 },
   games:    { label:'Games',     type:'num',  cell:r=>r.games,                      val:r=>r.games },
   avgPf:    { label:'Avg PF',    type:'num',  cell:r=>fmt(r.avgPf),                 val:r=>r.avgPf },
@@ -426,12 +468,32 @@ const gameTable = makeTable({
   tableId: 'gameTable', columns: GAME_COLUMNS, defaultOrder: GAME_DEFAULT, lsKey: 'game-colorder',
   defaultSort: { key: 'date', dir: -1 },  // most recent first
   getRows: () => { let r = gameRowObjs(GAMES); return activeRef ? r.filter(g => [g.cc, g.r2, g.r3].includes(activeRef)) : r; },
-  onAfter: rows => {
-    document.getElementById('gameCount').textContent = rows.length + ' games';
-    document.querySelectorAll('#gameTable a[data-ref]').forEach(a =>
-      a.addEventListener('click', e => { e.stopPropagation(); setFilter(a.dataset.ref); }));
-  },
+  onAfter: rows => { document.getElementById('gameCount').textContent = rows.length + ' games'; },
 });
+
+// --- referee photo popup ---
+function openPhoto(name) {
+  const modal = document.getElementById('photoModal');
+  const img = document.getElementById('photoImg');
+  const cap = document.getElementById('photoCaption');
+  const sub = document.querySelector('.photo-sub');
+  cap.textContent = name;
+  sub.style.display = '';
+  img.style.display = '';
+  img.alt = name;
+  img.onerror = () => { img.style.display = 'none'; sub.style.display = 'none'; cap.innerHTML = name + '<div class="photo-missing">No photo on file</div>'; };
+  img.src = PHOTO_DIR + encodeURIComponent(name) + '.jpg';
+  modal.hidden = false;
+}
+function closePhoto() { document.getElementById('photoModal').hidden = true; }
+// Capture-phase so a name click opens the photo and does NOT also trigger the row filter.
+document.addEventListener('click', e => {
+  const nl = e.target.closest('.namelink');
+  if (nl) { e.stopPropagation(); openPhoto(nl.dataset.photo); }
+}, true);
+document.getElementById('photoClose').addEventListener('click', closePhoto);
+document.getElementById('photoModal').addEventListener('click', e => { if (e.target.id === 'photoModal') closePhoto(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePhoto(); });
 
 // --- filtering ---
 function setFilter(name) {
