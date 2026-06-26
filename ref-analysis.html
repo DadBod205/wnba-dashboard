@@ -45,7 +45,7 @@
   .jersey-link svg { display: block; transition: transform 0.12s ease; }
   .jersey-link:hover svg { transform: scale(1.06); }
   .jersey-link span {
-    font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px;
+    font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px;
     white-space: nowrap;
   }
   .rev { position: absolute; bottom: 8px; right: 14px; font-size: 10px; color: var(--muted); }
@@ -55,10 +55,10 @@
     font-weight: 900;
     letter-spacing: 1px;
     text-transform: uppercase;
-    padding-right: 76px; /* clear the jersey/who's-who in the top-right */
+    padding-right: 100px; /* clear the jersey/who's-who in the top-right */
   }
   h1.title .whistle { font-weight: 400; }
-  .subtitle { color: var(--muted); font-size: 12px; margin-top: 4px; padding-right: 76px; }
+  .subtitle { color: var(--muted); font-size: 12px; margin-top: 4px; padding-right: 100px; }
   .subtitle a { color: var(--ink); font-weight: 600; }
   .toolbar { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   .toolbar label { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
@@ -133,6 +133,32 @@
   .namelink { cursor: pointer; }
   .namelink:hover { text-decoration: underline; }
 
+  /* Last Night's Games */
+  .ln-game { padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .ln-game:last-child { border-bottom: none; }
+  .ln-match { display: inline-block; font-weight: 800; font-size: 16px; font-variant-numeric: tabular-nums; color: inherit; text-decoration: none; }
+  .ln-match:hover { text-decoration: underline; }
+  .ln-match .ln-at { color: var(--muted); font-weight: 400; margin: 0 4px; }
+  .ln-match .ln-score { margin-left: 5px; }
+  .ln-meta { color: var(--muted); font-size: 12px; margin-left: 8px; font-weight: 600; }
+  .ln-crew { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 6px 10px; font-size: 13px; }
+  .ln-crew .crew-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; margin-right: 2px; }
+
+  /* collapsible card */
+  .card.collapsible > h2 { cursor: pointer; }
+  .card-chevron { float: right; transition: transform 0.2s; color: var(--muted); font-size: 13px; }
+  .card.collapsed .card-chevron { transform: rotate(-90deg); }
+  .card.collapsed .card-body { display: none; }
+
+  /* selected-referee focus card */
+  #focusCard[hidden] { display: none; }
+  .focus-head { display: flex; align-items: center; gap: 14px; }
+  .focus-photo { width: 76px; height: 96px; object-fit: cover; border-radius: 8px; background: #eee; cursor: pointer; flex: none; }
+  .focus-name { font-size: 22px; font-weight: 900; }
+  .focus-name .focus-num { font-size: 14px; font-weight: 800; border: 1px solid #111; border-radius: 4px; padding: 0 5px; margin-left: 8px; vertical-align: 3px; }
+  .focus-stats { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; color: var(--muted); }
+  .focus-stats b { color: var(--ink); font-size: 16px; font-variant-numeric: tabular-nums; }
+
   /* photo popup */
   .photo-modal {
     position: fixed; inset: 0; z-index: 1000;
@@ -170,7 +196,7 @@
     <div class="stripes"></div>
     <div class="header-inner">
       <a class="jersey-link" href="https://pr.nba.com/wp-content/uploads/sites/46/2026/05/2026-WNBA-Referee-Headshots.pdf" target="_blank" rel="noopener" title="WNBA referee headshots — see who's who">
-        <svg width="46" height="50" viewBox="0 0 100 110" xmlns="http://www.w3.org/2000/svg" aria-label="WNBA referee jersey">
+        <svg width="62" height="68" viewBox="0 0 100 110" xmlns="http://www.w3.org/2000/svg" aria-label="WNBA referee jersey">
           <defs>
             <pattern id="refpin" width="5" height="12" patternUnits="userSpaceOnUse">
               <rect width="5" height="12" fill="#f1f1f1"/>
@@ -228,18 +254,29 @@
   </div>
 
   <div class="card">
-    <h2>Referee Summary <span class="tag" id="refCount"></span></h2>
-    <p class="note">
-      Per-referee averages across every game they worked (any crew slot). Click a referee to filter the game log below.
-      <strong>Click a column header to sort; drag a header to reorder columns.</strong>
-      Note: officials work in 3-person crews and the data can't isolate who called what, so these are crew-influenced
-      averages, not pure individual ones. PF = personal fouls (both teams), Tech = technicals, Flag = flagrants.
-    </p>
-    <div class="scroll-x">
-      <table id="refTable">
-        <thead></thead>
-        <tbody><tr><td class="loading">Loading…</td></tr></tbody>
-      </table>
+    <h2>Last Night's Games <span class="tag" id="lastNightDate"></span></h2>
+    <div id="lastNightBody"><div class="loading">Loading…</div></div>
+  </div>
+
+  <div class="card" id="focusCard" hidden>
+    <div id="focusBody"></div>
+  </div>
+
+  <div class="card collapsible collapsed" id="refSummaryCard">
+    <h2 id="refSummaryToggle">Referee Summary <span class="tag" id="refCount"></span><span class="card-chevron">▼</span></h2>
+    <div class="card-body">
+      <p class="note">
+        Per-referee averages across every game they worked (any crew slot). Click a referee to filter the game log below.
+        <strong>Click a column header to sort; drag a header to reorder columns.</strong>
+        Note: officials work in 3-person crews and the data can't isolate who called what, so these are crew-influenced
+        averages, not pure individual ones. PF = personal fouls (both teams), Tech = technicals, Flag = flagrants.
+      </p>
+      <div class="scroll-x">
+        <table id="refTable">
+          <thead></thead>
+          <tbody><tr><td class="loading">Loading…</td></tr></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -455,7 +492,7 @@ function saveOrder(key, order) { try { localStorage.setItem(key, JSON.stringify(
 // --- build the two tables ---
 const refTable = makeTable({
   tableId: 'refTable', columns: REF_COLUMNS, defaultOrder: REF_DEFAULT, lsKey: 'ref-colorder',
-  defaultSort: { key: 'avgPf', dir: -1 },
+  defaultSort: { key: 'name', dir: 1 },  // first name A–Z
   getRows: () => { const min = num(document.getElementById('minGames').value) || 1; return REFS.filter(r => r.games >= min); },
   rowClass: r => 'refrow' + (r.name === activeRef ? ' active' : ''),
   rowAttr: r => `data-ref="${escAttr(r.name)}"`,
@@ -496,9 +533,54 @@ document.getElementById('photoClose').addEventListener('click', closePhoto);
 document.getElementById('photoModal').addEventListener('click', e => { if (e.target.id === 'photoModal') closePhoto(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closePhoto(); });
 
+// --- Last Night's Games (from the most recent date in the data) ---
+function renderLastNight() {
+  const el = document.getElementById('lastNightBody');
+  const tag = document.getElementById('lastNightDate');
+  if (!GAMES.length) { el.innerHTML = '<div class="loading">No games yet.</div>'; tag.textContent = ''; return; }
+  const latest = GAMES.reduce((m, g) => (g.Date > m ? g.Date : m), '');
+  const games = GAMES.filter(g => g.Date === latest);
+  let label = latest;
+  try { label = new Date(latest + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }); } catch (e) {}
+  tag.textContent = label;
+  el.innerHTML = games.map(g => {
+    const crew = [[g.CC, g['CC #'], true], [g['Ref 2'], g['Ref 2 #'], false], [g['Ref 3'], g['Ref 3 #'], false]]
+      .filter(c => c[0]).map(([n, num, cc]) => crewCell(n, num, cc)).join('');
+    const fouls = g['Total PF'] ? `<span class="ln-meta">${g['Total PF']} fouls</span>` : '';
+    const gid = g.GameID || '';
+    return `<div class="ln-game">
+      <a class="ln-match" href="index.html#game=${gid}" title="View this game's stats on the dashboard">${g.Away}<span class="ln-score">${g['Away Score'] || ''}</span><span class="ln-at">@</span>${g.Home}<span class="ln-score">${g['Home Score'] || ''}</span>${fouls}</a>
+      <div class="ln-crew"><span class="crew-label">Crew:</span>${crew}</div>
+    </div>`;
+  }).join('');
+}
+
+// --- selected-referee focus card (shown above the summary so you don't scroll) ---
+function renderFocus() {
+  const card = document.getElementById('focusCard');
+  const r = activeRef && REFS.find(x => x.name === activeRef);
+  if (!r) { card.hidden = true; return; }
+  card.hidden = false;
+  const photo = PHOTO_DIR + encodeURIComponent(r.name) + '.jpg';
+  document.getElementById('focusBody').innerHTML = `
+    <div class="focus-head">
+      <img class="focus-photo namelink" data-photo="${escAttr(r.name)}" src="${photo}" alt="${escAttr(r.name)}"
+           onerror="this.style.visibility='hidden'">
+      <div>
+        <div class="focus-name">${nameLink(r.name)}${r.num ? `<span class="focus-num">#${r.num}</span>` : ''}</div>
+        <div class="focus-stats">
+          <span><b>${r.games}</b> games</span>
+          <span><b>${fmt(r.avgPf)}</b> PF/g</span>
+          <span><b>${fmt(r.avgTech)}</b> Tech/g</span>
+          <span><b>${fmt(r.avgFlag)}</b> Flag/g</span>
+          <span><b>${fmt(r.avgTotal)}</b> total/g</span>
+        </div>
+      </div>
+    </div>`;
+}
+
 // --- filtering ---
 function setFilter(name) {
-  const wasOff = !activeRef;
   activeRef = (activeRef === name) ? '' : name;
   document.getElementById('refPick').value = activeRef;
   const banner = document.getElementById('filterBanner');
@@ -508,10 +590,16 @@ function setFilter(name) {
   } else {
     banner.classList.remove('on');
   }
+  renderFocus();
   refTable.render();
   gameTable.render();
-  if (activeRef) document.getElementById('gameTable').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (activeRef) document.getElementById('focusCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
+
+// Referee Summary is collapsible (collapsed by default in the HTML).
+document.getElementById('refSummaryToggle').addEventListener('click', () => {
+  document.getElementById('refSummaryCard').classList.toggle('collapsed');
+});
 
 // --- load ---
 async function load() {
@@ -527,6 +615,8 @@ async function load() {
     pick.value = activeRef;
     refTable.render();
     gameTable.render();
+    renderLastNight();
+    renderFocus();
     document.getElementById('lastLoaded').textContent =
       'Loaded ' + GAMES.length + ' games · ' + new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }) + ' CT';
   } catch (e) {
@@ -575,7 +665,7 @@ async function updateFromESPN() {
         REFS.slice().sort((a,b)=>a.name.localeCompare(b.name))
           .map(r => `<option value="${escAttr(r.name)}">${r.name}</option>`).join('');
       pick.value = activeRef;
-      refTable.render(); gameTable.render();
+      refTable.render(); gameTable.render(); renderLastNight(); renderFocus();
       document.getElementById('lastLoaded').textContent =
         'Updated ' + GAMES.length + ' games · ' + new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }) + ' CT';
     }

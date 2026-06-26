@@ -204,6 +204,12 @@
     padding: 10px 12px;
     margin-bottom: 10px;
   }
+  /* flash when arrived at via a deep link (#game=<id>) from the Ref Analysis page */
+  .game-card.game-focus-flash { animation: gameFlash 2.4s ease; }
+  @keyframes gameFlash {
+    0%, 70% { box-shadow: 0 0 0 3px var(--wnba-orange); border-color: var(--wnba-orange); }
+    100%    { box-shadow: 0 0 0 0 transparent; }
+  }
   .game-card-header {
     font-size: 14px;
     font-weight: 600;
@@ -1527,7 +1533,7 @@ async function renderHighlights(events) {
     const { home, away } = getCompetitors(ev);
     const urls = eventUrls(ev);
     return `
-      <div class="game-card">
+      <div class="game-card" data-gameid="${ev.id}">
         <div class="game-card-header">
           ${teamSpan(away.team.abbreviation, urls.gamecast)} ${away.score} <span style="color:var(--muted)">@</span>
           ${teamSpan(home.team.abbreviation, urls.gamecast)} ${home.score}
@@ -1720,7 +1726,7 @@ async function renderLiveGames() {
       // Live games get per-team top-3 lists + multi-stat rows + officials block.
       const stats = renderGameStatsHTML(ev, summaries[i], { splitByTeam: true, includeMeta: true, multiStat: true, includeFouls: true, enableTabs: true });
       return `
-        <div class="game-card">
+        <div class="game-card" data-gameid="${ev.id}">
           <div class="game-card-header" style="display:flex; align-items:center; gap:6px;">
             <span>${teamSpan(away.team.abbreviation)} ${away.score ?? ''} <span style="color:var(--muted)">@</span> ${teamSpan(home.team.abbreviation)} ${home.score ?? ''}</span>
             <a class="box-link" href="${urls.boxscore}" target="_blank" rel="noopener" title="Live box score">${BOXSCORE_ICON_SVG}</a>
@@ -1779,7 +1785,7 @@ async function renderTodayGames() {
       // Final — render as a game-card with the same stats blocks as Highlights.
       const sum = sumByEventId[ev.id];
       return `
-        <div class="game-card">
+        <div class="game-card" data-gameid="${ev.id}">
           <div class="game-card-header" style="display:flex; align-items:center; gap:6px;">
             <span>${teamSpan(away.team.abbreviation, urls.gamecast)} ${away.score ?? ''} <span style="color:var(--muted)">@</span> ${teamSpan(home.team.abbreviation, urls.gamecast)} ${home.score ?? ''}</span>
             <a class="box-link" href="${urls.boxscore}" target="_blank" rel="noopener" title="Box score">${BOXSCORE_ICON_SVG}</a>
@@ -2492,6 +2498,29 @@ document.addEventListener('click', (e) => {
   if (th) sortBoxScoreTable(th);
 });
 
+// Deep link from the Ref Analysis page: index.html#game=<eventId> expands the
+// game's section, scrolls to its card, and flashes it. Called after each chip that
+// renders game cards (cards appear asynchronously, so we retry briefly).
+function focusGameFromHash(attempt) {
+  const m = (location.hash || '').match(/game=(\d+)/);
+  if (!m) return;
+  const card = document.querySelector(`.game-card[data-gameid="${m[1]}"]`);
+  if (!card) {
+    if ((attempt || 0) < 20) setTimeout(() => focusGameFromHash((attempt || 0) + 1), 400);
+    return;
+  }
+  const section = card.closest('.section');
+  if (section) section.classList.remove('collapsed');
+  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Late-loading chips (news/standings via proxies) keep shifting layout for a few
+  // seconds — re-land the scroll instantly a few times until things settle.
+  [1500, 3500, 6000].forEach(t => setTimeout(() => card.scrollIntoView({ behavior: 'auto', block: 'center' }), t));
+  card.classList.remove('game-focus-flash');
+  void card.offsetWidth; // restart the animation if re-triggered
+  card.classList.add('game-focus-flash');
+}
+window.addEventListener('hashchange', () => focusGameFromHash(0));
+
 // init
 applySavedLayout();
 applyMobileDefaultLayout();
@@ -2500,6 +2529,7 @@ applyMobileDefaultCollapsed();
 wireHeaders();
 wireSortable();
 loadAll();
+focusGameFromHash(0);  // if arrived via #game=<id>, reveal & flash that game once it renders
 
 // Auto-refresh every hour while the page is open. Skip News + Transactions on this
 // tick — those are explicitly only refreshed on initial load or manual Refresh.
