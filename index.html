@@ -202,8 +202,10 @@
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 10px 12px;
-    margin-bottom: 10px;
+    margin-bottom: 18px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.07);
   }
+  .game-card:last-child { margin-bottom: 0; }
   /* flash when arrived at via a deep link (#game=<id>) from the Ref Analysis page */
   .game-card.game-focus-flash { animation: gameFlash 2.4s ease; }
   @keyframes gameFlash {
@@ -214,6 +216,8 @@
     font-size: 14px;
     font-weight: 600;
     margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
   }
   .stats-grid {
     display: grid;
@@ -496,6 +500,9 @@
   }
   .game-attendance { color: var(--muted); font-size: 14px; font-weight: 600; }
   .game-attendance .att-icon { width: 18px; height: 18px; vertical-align: -4px; margin-right: 5px; opacity: 0.85; }
+  .game-attendance .meta-sep { color: var(--border); font-weight: 400; margin: 0 2px; }
+  .venue-link { color: var(--wnba-orange); font-weight: 600; text-decoration: none; }
+  .venue-link:hover { text-decoration: underline; }
   .officials-title { color: var(--wnba-orange); font-weight: 600; text-decoration: none; }
   .officials-title:hover { text-decoration: underline; }
   .ref-photo-link { cursor: pointer; }
@@ -869,7 +876,7 @@
       <div class="section collapsed" data-key="news">
         <div class="section-header">
           <span class="drag-handle">⋮⋮</span>
-          <span class="section-title">Notable News</span>
+          <span class="section-title">News</span>
           <span class="chevron">▼</span>
         </div>
         <div class="section-body" id="newsBody"><div class="loading">Loading…</div></div>
@@ -1533,7 +1540,14 @@ function renderGameStatsHTML(ev, sum, opts = {}) {
       .filter(Boolean);
     const lines = [];
     const att = Number(sum.gameInfo?.attendance);
-    if (att > 0) lines.push(`<div class="game-attendance" title="Official attendance">${ATTENDANCE_ICON_SVG}${att.toLocaleString()}</div>`);
+    const venueName = sum.gameInfo?.venue?.fullName || '';
+    const venueLink = venueName
+      ? `<a class="venue-link" href="https://en.wikipedia.org/wiki/${encodeURIComponent(venueName.replace(/ /g, '_'))}" target="_blank" rel="noopener" title="${escAttr(venueName)} on Wikipedia">${venueName}</a>`
+      : '';
+    const attBits = [];
+    if (att > 0) attBits.push(`<span title="Official attendance">${ATTENDANCE_ICON_SVG}${att.toLocaleString()}</span>`);
+    if (venueLink) attBits.push(venueLink);
+    if (attBits.length) lines.push(`<div class="game-attendance">${attBits.join('<span class="meta-sep"> · </span>')}</div>`);
     if (officials.length) lines.push(`<div><a class="officials-title" href="ref-analysis.html" title="Open Ref Analysis">Officials:</a> ${officials.join(', ')}</div>`);
     if (lines.length) metaHtml = `<div class="game-meta-info">${lines.join('')}</div>`;
   }

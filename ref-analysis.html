@@ -83,7 +83,9 @@
     display: flex; align-items: center; gap: 8px;
   }
   .card > h2 .tag { font-size: 11px; font-weight: 700; color: #fff; background: #111; border-radius: 999px; padding: 2px 8px; }
-  .gl-ref-name { color: #FF6720; font-weight: 800; text-transform: none; }
+  .gl-ref-name { font-weight: 800; }
+  .gl-ref-name .gl-dash { color: #111; }
+  .gl-ref-name .gl-name { color: #FF6720; text-transform: uppercase; }
   .note { font-size: 11px; color: var(--muted); margin: 0 0 10px; line-height: 1.5; }
   .filter-banner {
     background: #111; color: #fff; font-size: 13px; font-weight: 600;
@@ -272,25 +274,7 @@
     <div id="focusBody"></div>
   </div>
 
-  <div class="card collapsible collapsed" id="refSummaryCard">
-    <h2 id="refSummaryToggle">Referee Summary <span class="tag" id="refCount"></span><span class="card-chevron">▼</span></h2>
-    <div class="card-body">
-      <p class="note">
-        Per-referee averages across every game they worked (any crew slot). Click a referee to filter the game log below.
-        <strong>Click a column header to sort; drag a header to reorder columns.</strong>
-        Note: officials work in 3-person crews and the data can't isolate who called what, so these are crew-influenced
-        averages, not pure individual ones. PF = personal fouls (both teams), Tech = technicals, Flag = flagrants.
-      </p>
-      <div class="scroll-x">
-        <table id="refTable">
-          <thead></thead>
-          <tbody><tr><td class="loading">Loading…</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <div class="card collapsible" id="gameLogCard">
+  <div class="card collapsible collapsed" id="gameLogCard">
     <h2>Game Log <span class="gl-ref-name" id="gameLogRefName" hidden></span><span class="tag" id="gameCount"></span><span class="card-chevron">▼</span></h2>
     <div class="card-body">
       <p class="note">Newest games first. Click a column header to sort; drag a header to reorder columns. Click any referee to filter.</p>
@@ -300,6 +284,24 @@
       </div>
       <div class="scroll-x">
         <table id="gameTable">
+          <thead></thead>
+          <tbody><tr><td class="loading">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card collapsible collapsed" id="refSummaryCard">
+    <h2 id="refSummaryToggle">Referee Summary <span class="tag" id="refCount"></span><span class="card-chevron">▼</span></h2>
+    <div class="card-body">
+      <p class="note">
+        Per-referee averages across every game they worked (any crew slot). Click a referee to filter the game log.
+        <strong>Click a column header to sort; drag a header to reorder columns.</strong>
+        Note: officials work in 3-person crews and the data can't isolate who called what, so these are crew-influenced
+        averages, not pure individual ones. PF = personal fouls (both teams), Tech = technicals, Flag = flagrants.
+      </p>
+      <div class="scroll-x">
+        <table id="refTable">
           <thead></thead>
           <tbody><tr><td class="loading">Loading…</td></tr></tbody>
         </table>
@@ -530,7 +532,12 @@ const gameTable = makeTable({
   onAfter: rows => {
     document.getElementById('gameCount').textContent = rows.length + ' games';
     const rn = document.getElementById('gameLogRefName');
-    rn.textContent = activeRef ? ('— ' + activeRef) : '';
+    if (activeRef) {
+      rn.innerHTML = '<span class="gl-dash">—</span> <span class="gl-name"></span>';
+      rn.querySelector('.gl-name').textContent = activeRef;
+    } else {
+      rn.innerHTML = '';
+    }
     rn.hidden = !activeRef;
   },
 });
@@ -617,6 +624,8 @@ function setFilter(name) {
   } else {
     banner.classList.remove('on');
   }
+  // Game Log is collapsed by default, but auto-expands while viewing a ref.
+  document.getElementById('gameLogCard').classList.toggle('collapsed', !activeRef);
   renderFocus();
   refTable.render();
   gameTable.render();
@@ -631,6 +640,7 @@ function clearSelection() {
   activeRef = '';
   document.getElementById('refPick').value = '';
   document.getElementById('filterBanner').classList.remove('on');
+  document.getElementById('gameLogCard').classList.add('collapsed');
   renderFocus();
   refTable.render();
   gameTable.render();
