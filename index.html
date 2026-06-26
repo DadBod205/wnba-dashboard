@@ -204,6 +204,7 @@
     padding: 10px 12px;
     margin-bottom: 18px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.07);
+    overflow: hidden;  /* let the black header bleed to the rounded corners */
   }
   .game-card:last-child { margin-bottom: 0; }
   /* flash when arrived at via a deep link (#game=<id>) from the Ref Analysis page */
@@ -213,12 +214,19 @@
     100%    { box-shadow: 0 0 0 0 transparent; }
   }
   .game-card-header {
-    font-size: 14px;
-    font-weight: 600;
-    margin-bottom: 8px;
-    padding-bottom: 8px;
-    border-bottom: 2px solid var(--border);
+    font-size: 15px;
+    font-weight: 700;
+    margin: -10px -12px 12px;   /* bleed the bar to the card edges */
+    padding: 9px 12px;
+    background: #111;
+    color: #fff;
   }
+  /* On the black bar, teams + scores go white; they stay team-colored everywhere else. */
+  .game-card-header .team-link { color: #fff !important; }
+  .game-card-header a.box-link { color: #fff; opacity: 0.85; }
+  .game-card-header a.box-link:hover { color: #fff; opacity: 1; }
+  /* lighten the muted "@" (and "Final") so it reads on the black bar */
+  .game-card-header span[style*="--muted"] { color: rgba(255,255,255,0.6) !important; }
   .stats-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
